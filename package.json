@@ -1,0 +1,25 @@
+﻿{
+  "name": "rihal",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Multi-tenant SaaS platform for Hajj and Umrah agency operations",
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "db:migrate": "pnpm --filter @rihal/database db:migrate",
+    "db:generate": "pnpm --filter @rihal/database db:generate",
+    "db:studio": "pnpm --filter @rihal/database db:studio",
+    "db:seed": "pnpm --filter @rihal/database db:seed"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=22.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}
