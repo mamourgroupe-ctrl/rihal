@@ -5,14 +5,14 @@
   "description": "Isolated v2 foundation for Rihal's multi-tenant operations platform",
   "packageManager": "pnpm@9.15.0",
   "engines": {
-    "node": ">=22.0.0"
+    "node": "^22.12.0 || >=24.0.0"
   },
   "scripts": {
     "db:validate": "node scripts/prisma.mjs validate",
     "db:generate": "node scripts/prisma.mjs generate",
     "db:deploy": "node scripts/prisma.mjs migrate deploy",
     "build": "pnpm db:generate && pnpm -r --sort run build",
-    "typecheck": "pnpm db:generate && pnpm -r --sort run typecheck && tsc -p tsconfig.tests.json",
+    "typecheck": "pnpm db:generate && pnpm --filter @rihal-v2/database build && pnpm -r --sort run typecheck && tsc -p tsconfig.tests.json",
     "test": "pnpm db:generate && vitest run",
     "check": "pnpm db:validate && pnpm typecheck && pnpm test"
   },
@@ -23,13 +23,16 @@
     "embedded-postgres": "16.14.0-beta.17",
     "pg": "8.16.3",
     "typescript": "5.9.3",
-    "vitest": "3.2.4"
+    "vitest": "4.1.11"
   },
   "pnpm": {
     "neverBuiltDependencies": [
       "@prisma/client",
       "@prisma/engines",
       "prisma"
-    ]
+    ],
+    "overrides": {
+      "deepmerge-ts": "8.0.0"
+    }
   }
 }
