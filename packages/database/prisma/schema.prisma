@@ -1,0 +1,273 @@
+// Rihal Database Schema
+// Multi-tenant SaaS for Hajj/Umrah agencies
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// MULTI-TENANCY CORE
+// ============================================
+
+model Tenant {
+  id        String       @id @default(cuid())
+  name      String
+  slug      String       @unique
+  plan      Plan         @default(FREE)
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  users    User[]
+  pilgrims Pilgrim[]
+  groups   Group[]
+  invoices Invoice[]
+
+  @@map("tenants")
+}
+
+enum Plan {
+  FREE
+  BASIC
+  PRO
+  ENTERPRISE
+}
+
+enum TenantStatus {
+  ACTIVE
+  SUSPENDED
+  CANCELLED
+}
+
+// ============================================
+// USERS & AUTH
+// ============================================
+
+model User {
+  id           String    @id @default(cuid())
+  tenantId     String
+  email        String
+  passwordHash String
+  name         String
+  role         Role      @default(OPERATOR)
+  phone        String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, email])
+  @@index([tenantId])
+  @@map("users")
+}
+
+enum Role {
+  ADMIN
+  OPERATOR
+  SUPERVISOR
+  VIEWER
+}
+
+// ============================================
+// PILGRIMS
+// ============================================
+
+model Pilgrim {
+  id             String        @id @default(cuid())
+  tenantId       String
+  fullNameAr     String
+  fullNameEn     String
+  passportNumber String
+  passportExpiry DateTime
+  nationality    String
+  dateOfBirth    DateTime?
+  gender         Gender?
+  phone          String?
+  email          String?
+  status         PilgrimStatus @default(DRAFT)
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  groupMembers GroupMember[]
+  documents    Document[]
+
+  @@unique([tenantId, passportNumber])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("pilgrims")
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum PilgrimStatus {
+  DRAFT
+  REGISTERED
+  DOCUMENTS_UPLOADED
+  READY_FOR_BOOKING
+  BOOKED
+  PERMIT_ISSUED
+  COMPLETED
+  CANCELLED
+}
+
+// ============================================
+// GROUPS
+// ============================================
+
+model Group {
+  id            String      @id @default(cuid())
+  tenantId      String
+  name          String
+  description   String?
+  maxSize       Int         @default(4)
+  status        GroupStatus @default(DRAFT)
+  scheduledDate DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  members GroupMember[]
+
+  @@index([tenantId])
+  @@map("groups")
+}
+
+enum GroupStatus {
+  DRAFT
+  READY
+  SUBMITTED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+model GroupMember {
+  id        String   @id @default(cuid())
+  groupId   String
+  pilgrimId String
+  isLeader  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  pilgrim Pilgrim @relation(fields: [pilgrimId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, pilgrimId])
+  @@map("group_members")
+}
+
+// ============================================
+// DOCUMENTS
+// ============================================
+
+model Document {
+  id        String       @id @default(cuid())
+  tenantId  String
+  pilgrimId String
+  type      DocumentType
+  fileUrl   String
+  fileName  String
+  fileSize  Int
+  mimeType  String
+  ocrData   Json?
+  verified  Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  pilgrim Pilgrim @relation(fields: [pilgrimId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([pilgrimId])
+  @@map("documents")
+}
+
+enum DocumentType {
+  PASSPORT
+  VISA
+  PHOTO
+  VACCINATION
+  INSURANCE
+  OTHER
+}
+
+// ============================================
+// BILLING
+// ============================================
+
+model Invoice {
+  id            String        @id @default(cuid())
+  tenantId      String
+  invoiceNumber String
+  amount        Decimal       @db.Decimal(10, 2)
+  currency      String        @default("SAR")
+  status        InvoiceStatus @default(DRAFT)
+  zatcaQr       String?
+  zatcaHash     String?
+  issuedAt      DateTime?
+  paidAt        DateTime?
+  dueDate       DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String               @id @default(cuid())
+  tenantId  String
+  userId    String?
+  pilgrimId String?
+  channel   NotificationChannel
+  template  String
+  payload   Json
+  status    NotificationStatus   @default(PENDING)
+  sentAt    DateTime?
+  error     String?
+  createdAt DateTime             @default(now())
+
+  @@index([tenantId])
+  @@index([status])
+  @@map("notifications")
+}
+
+enum NotificationChannel {
+  WHATSAPP
+  EMAIL
+  SMS
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
