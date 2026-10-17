@@ -66,10 +66,21 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 
   const text = await response.text();
   let body: unknown = null;
+  let isJson = true;
   try {
     body = text ? JSON.parse(text) : null;
   } catch {
-    body = text;
+    // The proxy answers with an HTML error page when the API is down or the
+    // route is missing — never surface a raw JSON.parse crash to the user.
+    isJson = false;
+    body = null;
+  }
+
+  if (!isJson && response.status !== 404) {
+    throw new ApiError(
+      'تعذّر الوصول إلى الخادم — تأكد من تشغيل الـ API ثم أعد المحاولة',
+      response.status,
+    );
   }
 
   const message = (body as { message?: string | string[] } | null)?.message;
@@ -116,7 +127,13 @@ export async function upload<T>(path: string, form: FormData): Promise<T> {
     throw new ApiError('انتهت الجلسة', 401);
   }
 
-  const body = await response.json().catch(() => null);
+  const text = await response.text();
+  let body: { message?: string | string[] } | null = null;
+  try {
+    body = text ? JSON.parse(text) : null;
+  } catch {
+    body = null;
+  }
   if (!response.ok) {
     const message = body?.message;
     throw new ApiError(

@@ -286,6 +286,10 @@ export default function LoginPage() {
             </button>
           </form>
         )}
+
+        <div className="text-xs muted" style={{ marginTop: 16, textAlign: 'center' }}>
+          الإصدار {process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev'}
+        </div>
       </div>
     </div>
   );
