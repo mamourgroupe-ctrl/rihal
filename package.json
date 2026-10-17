@@ -5,6 +5,8 @@
   "description": "Multi-tenant SaaS platform for Hajj and Umrah agency operations",
   "scripts": {
     "dev": "turbo run dev",
+    "dev:api": "pnpm --filter @rihal/api dev",
+    "dev:web": "pnpm --filter @rihal/web dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "test": "turbo run test",
