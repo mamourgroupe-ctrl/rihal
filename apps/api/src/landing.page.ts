@@ -191,6 +191,31 @@ export const LANDING_HTML = /* html */ `<!doctype html>
     .role-badge { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: rgba(217,179,108,0.12); color: #e8c88f; border: 1px solid rgba(217,179,108,0.3); }
     .logout { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 11px; font-family: var(--font); padding: 0; }
     .logout:hover { color: var(--danger); }
+
+    .doc-dialog { width: min(680px, calc(100vw - 32px)); }
+    .doc-body { padding: 16px 20px; display: grid; gap: 16px; max-height: 68vh; overflow-y: auto; }
+    .doc-section-title { font-size: 12.5px; font-weight: 600; color: var(--muted); display: flex; justify-content: space-between; align-items: center; }
+    .checklist { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 8px; }
+    .check-item { border: 1px solid var(--border); border-radius: 12px; padding: 9px 11px; background: rgba(0,0,0,0.18); font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+    .check-item.ok { border-color: rgba(45,212,167,0.35); background: rgba(45,212,167,0.06); }
+    .check-item.missing { border-color: rgba(248,113,113,0.3); background: rgba(248,113,113,0.05); }
+    .check-name { font-weight: 600; display: flex; justify-content: space-between; gap: 6px; }
+    .check-note { font-size: 10.5px; color: var(--muted); }
+    .req-dot { color: var(--gold); font-size: 9px; }
+    .doc-list { display: grid; gap: 8px; }
+    .doc-item { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border: 1px solid var(--border); border-radius: 12px; background: rgba(0,0,0,0.18); font-size: 12px; }
+    .doc-item .meta { flex: 1; min-width: 0; }
+    .doc-item .meta b { display: block; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .doc-item .meta span { color: var(--muted); font-size: 10.5px; }
+    .doc-item .warn-line { color: #fca5a5; font-size: 10.5px; display: block; margin-top: 2px; }
+    .doc-actions { display: flex; gap: 5px; flex-wrap: wrap; justify-content: flex-end; }
+    .doc-actions button { padding: 4px 9px; font-size: 11px; }
+    .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+    .upload-grid .full { grid-column: 1 / -1; }
+    .upload-grid label { font-size: 11.5px; color: var(--muted); display: flex; flex-direction: column; gap: 4px; }
+    .upload-grid input[type=file] { padding: 6px; font-size: 11.5px; }
+    .upload-note { font-size: 10.5px; color: var(--muted); }
+    .mrz-box { font-family: ui-monospace, Menlo, monospace; direction: ltr; text-align: left; font-size: 11px; }
     @media (max-width: 640px) {
       td, th { padding: 10px 12px; }
       .hide-sm { display: none; }
@@ -437,6 +462,55 @@ export const LANDING_HTML = /* html */ `<!doctype html>
   </form>
 </dialog>
 
+
+<dialog id="docs-dialog" class="doc-dialog">
+  <div class="dialog-head">
+    <div>
+      <h3>وثائق المعتمر</h3>
+      <div style="font-size:11.5px;color:var(--muted)" id="docs-pilgrim"></div>
+    </div>
+    <button type="button" class="btn ghost" data-close>إغلاق</button>
+  </div>
+  <div class="doc-body">
+    <div>
+      <div class="doc-section-title"><span>قائمة التحقق</span><span id="docs-readiness"></span></div>
+      <div class="checklist" id="docs-checklist" style="margin-top:8px"></div>
+    </div>
+
+    <div id="docs-upload-wrap">
+      <div class="doc-section-title" style="margin-bottom:8px">رفع وثيقة</div>
+      <form class="upload-grid" id="docs-form">
+        <label>نوع الوثيقة
+          <select name="type" id="docs-type">
+            <option value="PASSPORT">جواز السفر</option>
+            <option value="PHOTO">صورة شخصية</option>
+            <option value="VISA">تأشيرة</option>
+            <option value="VACCINATION">شهادة تطعيم</option>
+            <option value="INSURANCE">تأمين</option>
+            <option value="OTHER">أخرى</option>
+          </select>
+        </label>
+        <label>الملف (JPG / PNG / WEBP / PDF · حتى 5MB)
+          <input name="file" type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" />
+        </label>
+        <label class="full" id="docs-mrz-wrap">الرمز الآلي MRZ (سطران من أسفل صفحة الجواز) — اختياري
+          <textarea name="ocrText" class="mrz-box" rows="3" placeholder="P&lt;SAUALOTAIBI&lt;&lt;ABDULLAH&lt;MOHAMMED&#10;A123456784SAU9002155M31082061234567890123454"></textarea>
+          <span class="upload-note">يُقرأ الرمز آلياً ويُتحقق من أرقام ICAO ويُطابق مع سجل المعتمر. بدونه تبقى الوثيقة «غير متحقق منها».</span>
+        </label>
+        <div class="err-box full" id="docs-error" style="margin:0"></div>
+        <div class="full" style="display:flex;justify-content:flex-end;gap:8px">
+          <button type="submit" class="btn" id="docs-submit">رفع الوثيقة</button>
+        </div>
+      </form>
+    </div>
+
+    <div>
+      <div class="doc-section-title" style="margin-bottom:8px"><span>الملفات المرفوعة</span><span id="docs-count"></span></div>
+      <div class="doc-list" id="docs-list"></div>
+    </div>
+  </div>
+</dialog>
+
 <div id="toast"></div>
 
 <script>
@@ -489,6 +563,7 @@ export const LANDING_HTML = /* html */ `<!doctype html>
   var currentUser = null;
   var canWrite = false;
   var canDelete = false;
+  var canVerify = false;
   var ROLE_LABELS = {
     ADMIN: 'مدير الوكالة',
     OPERATOR: 'منسّق العمليات',
@@ -539,8 +614,10 @@ export const LANDING_HTML = /* html */ `<!doctype html>
     var role = currentUser ? currentUser.role : null;
     canWrite = role === 'ADMIN' || role === 'OPERATOR' || role === 'SUPERVISOR';
     canDelete = role === 'ADMIN';
+    canVerify = role === 'ADMIN' || role === 'SUPERVISOR';
     el('btn-add-pilgrim').hidden = !canWrite;
     el('btn-add-group').hidden = !canWrite;
+    el('docs-upload-wrap').hidden = !canWrite;
   }
 
   function showAuthScreen() {
@@ -683,7 +760,10 @@ export const LANDING_HTML = /* html */ `<!doctype html>
             '<td class="hide-sm">' + escapeHtml(pilgrim.nationality) + '</td>' +
             '<td class="hide-sm">' + formatDate(pilgrim.passportExpiry) + expiryNote + '</td>' +
             '<td>' + badge(pilgrim.status, STATUS_LABELS, STATUS_CLASS) + '</td>' +
-            '<td>' + (canDelete ? '<button class="btn danger" data-delete="' + escapeHtml(pilgrim.id) + '">حذف</button>' : '') + '</td>' +
+            '<td style="white-space:nowrap">' +
+              '<button class="btn ghost" data-docs="' + escapeHtml(pilgrim.id) + '" data-docs-name="' + escapeHtml(pilgrim.fullNameAr) + '">الوثائق</button> ' +
+              (canDelete ? '<button class="btn danger" data-delete="' + escapeHtml(pilgrim.id) + '">حذف</button>' : '') +
+            '</td>' +
             '</tr>';
         }).join('');
       }
@@ -838,6 +918,227 @@ export const LANDING_HTML = /* html */ `<!doctype html>
         box.textContent = error.message;
         box.style.display = 'block';
       });
+  });
+
+
+  // ---------------------------------------------------------------- documents
+  var DOC_LABELS = {
+    PASSPORT: 'جواز السفر',
+    PHOTO: 'صورة شخصية',
+    VISA: 'تأشيرة',
+    VACCINATION: 'شهادة تطعيم',
+    INSURANCE: 'تأمين',
+    OTHER: 'أخرى'
+  };
+  var docsPilgrimId = '';
+  var docsData = null;
+
+  function formatBytes(bytes) {
+    if (!bytes && bytes !== 0) return '';
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return Math.round(bytes / 1024) + ' KB';
+    return (bytes / 1024 / 1024).toFixed(1) + ' MB';
+  }
+
+  function renderChecklist(readiness) {
+    var html = readiness.checklist.map(function (item) {
+      var cls = item.uploaded ? 'ok' : (item.required ? 'missing' : '');
+      var state = item.uploaded
+        ? (item.verified ? 'موثّقة ✓' : 'بانتظار التحقق')
+        : 'غير مرفوعة';
+      var notes = [];
+      notes.push(state);
+      if (item.required) notes.push('مطلوبة');
+      if (item.expired) notes.push('منتهية!');
+      return '<div class="check-item ' + cls + '">' +
+        '<div class="check-name"><span>' + DOC_LABELS[item.type] + '</span>' +
+        (item.required ? '<span class="req-dot">●</span>' : '') + '</div>' +
+        '<div class="check-note">' + notes.join(' · ') + '</div>' +
+        (item.expiresAt ? '<div class="check-note">تنتهي: ' + formatDate(item.expiresAt) + '</div>' : '') +
+        '</div>';
+    }).join('');
+    el('docs-checklist').innerHTML = html;
+
+    var badge = el('docs-readiness');
+    if (readiness.readyForBooking) {
+      badge.innerHTML = '<span class="badge st-green">جاهز للحجز</span>';
+    } else if (readiness.complete) {
+      badge.innerHTML = '<span class="badge st-gold">مكتملة — بانتظار التحقق</span>';
+    } else {
+      badge.innerHTML = '<span class="badge st-red">ناقصة: ' +
+        readiness.missing.map(function (type) { return DOC_LABELS[type] || type; }).join(' + ') + '</span>';
+    }
+  }
+
+  function renderDocuments() {
+    if (!docsData) return;
+    renderChecklist(docsData.readiness);
+    el('docs-count').textContent = docsData.items.length + ' ملف';
+
+    if (!docsData.items.length) {
+      el('docs-list').innerHTML = '<div class="empty" style="padding:18px">لا توجد ملفات بعد</div>';
+      return;
+    }
+
+    el('docs-list').innerHTML = docsData.items.map(function (doc) {
+      var warnings = doc.ocrData && doc.ocrData.mismatches && doc.ocrData.mismatches.length
+        ? '<span class="warn-line">' + doc.ocrData.mismatches.map(escapeHtml).join(' · ') + '</span>'
+        : '';
+      return '<div class="doc-item">' +
+        '<div class="meta">' +
+          '<b>' + DOC_LABELS[doc.type] + ' — ' + escapeHtml(doc.fileName) + '</b>' +
+          '<span>' + formatBytes(doc.fileSize) + ' · ' + formatDate(doc.createdAt) + ' · ' +
+            (doc.verified ? '<span style="color:var(--green)">موثّقة</span>' : '<span style="color:var(--gold)">غير موثّقة</span>') +
+          '</span>' + warnings +
+        '</div>' +
+        '<div class="doc-actions">' +
+          '<button class="btn ghost" data-doc-download="' + escapeHtml(doc.id) + '">تنزيل</button>' +
+          (canVerify ? '<button class="btn ghost" data-doc-verify="' + escapeHtml(doc.id) + '" data-verified="' + (doc.verified ? '1' : '0') + '">' + (doc.verified ? 'إلغاء التحقق' : 'تحقق') + '</button>' : '') +
+          (canVerify ? '<button class="btn danger" data-doc-delete="' + escapeHtml(doc.id) + '">حذف</button>' : '') +
+        '</div>' +
+      '</div>';
+    }).join('');
+  }
+
+  function loadDocuments() {
+    if (!docsPilgrimId) return Promise.resolve();
+    return request('/pilgrims/' + encodeURIComponent(docsPilgrimId) + '/documents')
+      .then(function (data) {
+        docsData = data;
+        renderDocuments();
+      })
+      .catch(function (error) {
+        el('docs-list').innerHTML = '<div class="empty" style="padding:18px">تعذّر تحميل الوثائق: ' + escapeHtml(error.message) + '</div>';
+      });
+  }
+
+  function openDocuments(pilgrimId, pilgrimName) {
+    docsPilgrimId = pilgrimId;
+    docsData = null;
+    el('docs-pilgrim').textContent = pilgrimName;
+    el('docs-checklist').innerHTML = '<div class="check-note">جارٍ التحميل…</div>';
+    el('docs-list').innerHTML = '<div class="check-note">جارٍ التحميل…</div>';
+    el('docs-readiness').innerHTML = '';
+    el('docs-error').style.display = 'none';
+    el('docs-form').reset();
+    el('docs-type').dispatchEvent(new Event('change'));
+    el('docs-dialog').showModal();
+    loadDocuments();
+  }
+
+  el('docs-type').addEventListener('change', function () {
+    el('docs-mrz-wrap').hidden = el('docs-type').value !== 'PASSPORT';
+  });
+
+  el('docs-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = new FormData(event.target);
+    var file = form.get('file');
+    if (!file || !file.size) {
+      el('docs-error').textContent = 'اختر ملفاً أولاً';
+      el('docs-error').style.display = 'block';
+      return;
+    }
+
+    var payload = new FormData();
+    payload.append('type', form.get('type'));
+    payload.append('file', file);
+    var mrz = form.get('ocrText');
+    if (mrz) payload.append('ocrText', mrz);
+
+    var submit = el('docs-submit');
+    submit.disabled = true;
+    el('docs-error').style.display = 'none';
+
+    fetch(API + '/pilgrims/' + encodeURIComponent(docsPilgrimId) + '/documents', {
+      method: 'POST',
+      headers: token ? { authorization: 'Bearer ' + token } : {},
+      body: payload
+    }).then(function (response) {
+      return response.json().then(function (body) {
+        if (!response.ok) {
+          var message = body && body.message;
+          throw new Error(Array.isArray(message) ? message.join(' · ') : (message || 'فشل الرفع'));
+        }
+        return body;
+      });
+    }).then(function (result) {
+      var note = 'تم رفع الوثيقة';
+      if (result.document.ocrData && result.document.ocrData.source === 'mrz') {
+        note = result.document.verified
+          ? 'تم التحقق من الجواز ومطابقته للسجل'
+          : 'رُفعت الوثيقة لكنها غير موثّقة — راجع التحذيرات';
+      }
+      var failedVerification = Boolean(
+        result.document.ocrData && result.document.ocrData.source === 'mrz' && !result.document.verified
+      );
+      toast(note, failedVerification);
+      el('docs-form').reset();
+      el('docs-type').dispatchEvent(new Event('change'));
+      loadDocuments();
+      refreshAll();
+    }).catch(function (error) {
+      el('docs-error').textContent = error.message;
+      el('docs-error').style.display = 'block';
+    }).finally(function () {
+      submit.disabled = false;
+    });
+  });
+
+  el('docs-list').addEventListener('click', function (event) {
+    var download = event.target.closest('[data-doc-download]');
+    if (download) {
+      var id = download.getAttribute('data-doc-download');
+      fetch(API + '/documents/' + encodeURIComponent(id) + '/download', {
+        headers: token ? { authorization: 'Bearer ' + token } : {}
+      }).then(function (response) {
+        if (!response.ok) throw new Error('تعذّر تنزيل الملف');
+        return response.blob();
+      }).then(function (blob) {
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = 'document-' + id;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 2000);
+      }).catch(function (error) { toast(error.message, true); });
+      return;
+    }
+
+    var verify = event.target.closest('[data-doc-verify]');
+    if (verify) {
+      var documentId = verify.getAttribute('data-doc-verify');
+      var nextVerified = verify.getAttribute('data-verified') !== '1';
+      request('/documents/' + encodeURIComponent(documentId) + '/verify', {
+        method: 'PATCH',
+        body: JSON.stringify({ verified: nextVerified })
+      }).then(function () {
+        toast(nextVerified ? 'تم توثيق الوثيقة' : 'أُلغي توثيق الوثيقة');
+        loadDocuments();
+        refreshAll();
+      }).catch(function (error) { toast(error.message, true); });
+      return;
+    }
+
+    var remove = event.target.closest('[data-doc-delete]');
+    if (remove) {
+      if (!confirm('حذف هذه الوثيقة؟')) return;
+      request('/documents/' + encodeURIComponent(remove.getAttribute('data-doc-delete')), {
+        method: 'DELETE'
+      }).then(function () {
+        toast('تم حذف الوثيقة');
+        loadDocuments();
+        refreshAll();
+      }).catch(function (error) { toast(error.message, true); });
+    }
+  });
+
+  el('pilgrims-body').addEventListener('click', function (event) {
+    var button = event.target.closest('[data-docs]');
+    if (!button) return;
+    openDocuments(button.getAttribute('data-docs'), button.getAttribute('data-docs-name') || '');
   });
 
   // ----------------------------------------------------------- auth flows

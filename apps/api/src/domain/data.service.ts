@@ -4,6 +4,7 @@ import { MemoryStore } from './memory.store';
 import { PrismaProvider } from './prisma.provider';
 import {
   AuthenticatedUser,
+  CreateDocumentInput,
   CreateGroupInput,
   CreatePilgrimInput,
   DashboardStats,
@@ -11,6 +12,7 @@ import {
   GroupStatus,
   Paginated,
   Pilgrim,
+  PilgrimDocument,
   PilgrimListQuery,
   RegisterInput,
   Tenant,
@@ -192,6 +194,36 @@ export class DataService
 
   findIdentity(userId: string): Promise<AuthenticatedUser | null> {
     return this.resolve(this.delegate.findIdentity(userId));
+  }
+
+  // ---------------------------------------------------------------- documents
+
+  listDocuments(tenantId: string, pilgrimId: string): Promise<PilgrimDocument[]> {
+    return this.resolve(this.delegate.listDocuments(tenantId, pilgrimId));
+  }
+
+  findDocument(tenantId: string, id: string): Promise<PilgrimDocument | null> {
+    return this.resolve(this.delegate.findDocument(tenantId, id));
+  }
+
+  createDocument(
+    tenantId: string,
+    pilgrimId: string,
+    input: CreateDocumentInput,
+  ): Promise<PilgrimDocument> {
+    return this.resolve(this.delegate.createDocument(tenantId, pilgrimId, input));
+  }
+
+  setDocumentVerified(
+    tenantId: string,
+    id: string,
+    verified: boolean,
+  ): Promise<PilgrimDocument | null> {
+    return this.resolve(this.delegate.setDocumentVerified(tenantId, id, verified));
+  }
+
+  deleteDocument(tenantId: string, id: string): Promise<boolean> {
+    return this.resolve(this.delegate.deleteDocument(tenantId, id));
   }
 
   /** Wraps the synchronous in-memory store so callers always await. */

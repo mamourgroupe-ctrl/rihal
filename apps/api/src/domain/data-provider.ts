@@ -1,5 +1,6 @@
 import {
   AuthenticatedUser,
+  CreateDocumentInput,
   CreateGroupInput,
   CreatePilgrimInput,
   DashboardStats,
@@ -7,6 +8,7 @@ import {
   GroupStatus,
   Paginated,
   Pilgrim,
+  PilgrimDocument,
   PilgrimListQuery,
   RegisterInput,
   Tenant,
@@ -78,4 +80,20 @@ export interface DataProvider {
 
   /** Resolved identity for a request (active user + active tenant). */
   findIdentity(userId: string): Awaitable<AuthenticatedUser | null>;
+
+  // ---------------------------------------------------------------- documents
+
+  listDocuments(tenantId: string, pilgrimId: string): Awaitable<PilgrimDocument[]>;
+  findDocument(tenantId: string, id: string): Awaitable<PilgrimDocument | null>;
+  createDocument(
+    tenantId: string,
+    pilgrimId: string,
+    input: CreateDocumentInput,
+  ): Awaitable<PilgrimDocument>;
+  setDocumentVerified(
+    tenantId: string,
+    id: string,
+    verified: boolean,
+  ): Awaitable<PilgrimDocument | null>;
+  deleteDocument(tenantId: string, id: string): Awaitable<boolean>;
 }

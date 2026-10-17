@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import {
   AuthenticatedUser,
+  CreateDocumentInput,
   CreateGroupInput,
   CreatePilgrimInput,
   DashboardStats,
@@ -12,6 +13,7 @@ import {
   Paginated,
   PILGRIM_STATUSES,
   Pilgrim,
+  PilgrimDocument,
   PilgrimListQuery,
   PilgrimStatus,
   RegisterInput,
@@ -38,6 +40,7 @@ export class MemoryStore {
   private readonly pilgrims = new Map<string, Pilgrim>();
   private readonly groups = new Map<string, Group>();
   private readonly members: GroupMember[] = [];
+  private readonly documents = new Map<string, PilgrimDocument>();
   private seq = 0;
 
   constructor() {
@@ -222,6 +225,9 @@ export class MemoryStore {
     if (!pilgrim) return false;
 
     this.pilgrims.delete(id);
+    for (const [documentId, document] of this.documents) {
+      if (document.pilgrimId === id) this.documents.delete(documentId);
+    }
     for (let index = this.members.length - 1; index >= 0; index -= 1) {
       if (this.members[index].pilgrimId === id) {
         const group = this.groups.get(this.members[index].groupId);
@@ -433,6 +439,64 @@ export class MemoryStore {
     };
   }
 
+
+  // ---------------------------------------------------------------- documents
+
+  listDocuments(tenantId: string, pilgrimId: string): PilgrimDocument[] {
+    return [...this.documents.values()]
+      .filter(
+        (document) =>
+          document.tenantId === tenantId && document.pilgrimId === pilgrimId,
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  findDocument(tenantId: string, id: string): PilgrimDocument | null {
+    const document = this.documents.get(id);
+    return document && document.tenantId === tenantId ? document : null;
+  }
+
+  createDocument(
+    tenantId: string,
+    pilgrimId: string,
+    input: CreateDocumentInput,
+  ): PilgrimDocument {
+    if (!this.findPilgrim(tenantId, pilgrimId)) {
+      throw new HttpException('المعتمر غير موجود', HttpStatus.NOT_FOUND);
+    }
+    const document: PilgrimDocument = {
+      id: this.nextId('doc'),
+      tenantId,
+      pilgrimId,
+      type: input.type,
+      fileUrl: input.fileUrl,
+      fileName: input.fileName,
+      fileSize: input.fileSize,
+      mimeType: input.mimeType,
+      ocrData: input.ocrData ?? null,
+      verified: input.verified ?? false,
+      createdAt: this.now(),
+    };
+    this.documents.set(document.id, document);
+    return document;
+  }
+
+  setDocumentVerified(
+    tenantId: string,
+    id: string,
+    verified: boolean,
+  ): PilgrimDocument | null {
+    const document = this.findDocument(tenantId, id);
+    if (!document) return null;
+    document.verified = verified;
+    return document;
+  }
+
+  deleteDocument(tenantId: string, id: string): boolean {
+    if (!this.findDocument(tenantId, id)) return false;
+    this.documents.delete(id);
+    return true;
+  }
 
   // ----------------------------------------------------------- tenants & auth
 

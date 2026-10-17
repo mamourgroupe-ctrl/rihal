@@ -183,3 +183,87 @@ export interface AuthenticatedUser {
   name: string;
   role: Role;
 }
+
+// ============================================================
+// DOCUMENTS
+// ============================================================
+
+export const DOCUMENT_TYPES = [
+  'PASSPORT',
+  'VISA',
+  'PHOTO',
+  'VACCINATION',
+  'INSURANCE',
+  'OTHER',
+] as const;
+
+export type DocumentType = (typeof DOCUMENT_TYPES)[number];
+
+/** Documents the agency must collect before a pilgrim can be booked. */
+export const REQUIRED_DOCUMENT_TYPES: DocumentType[] = ['PASSPORT', 'PHOTO'];
+
+/** Fields we try to read from a passport (MRZ). */
+export interface PassportOcrResult {
+  source: 'mrz' | 'none';
+  passportNumber?: string;
+  fullNameEn?: string;
+  nationality?: string;
+  dateOfBirth?: string;
+  gender?: Gender;
+  passportExpiry?: string;
+  issuingState?: string;
+  checkDigitsValid?: boolean;
+  /** Differences between the OCR result and the stored pilgrim record. */
+  mismatches: string[];
+}
+
+export interface PilgrimDocument {
+  id: string;
+  tenantId: string;
+  pilgrimId: string;
+  type: DocumentType;
+  /** Opaque storage key (never exposed as a public URL). */
+  fileUrl: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  ocrData?: PassportOcrResult | null;
+  verified: boolean;
+  createdAt: string;
+}
+
+export interface DocumentChecklistItem {
+  type: DocumentType;
+  required: boolean;
+  uploaded: boolean;
+  verified: boolean;
+  documentId?: string;
+  fileName?: string;
+  createdAt?: string;
+  /** Passport expiry parsed from the MRZ, when available. */
+  expiresAt?: string | null;
+  expired?: boolean;
+}
+
+export interface DocumentReadiness {
+  required: DocumentType[];
+  missing: DocumentType[];
+  complete: boolean;
+  readyForBooking: boolean;
+  checklist: DocumentChecklistItem[];
+}
+
+export interface CreateDocumentInput {
+  type: DocumentType;
+  fileUrl: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  ocrData?: PassportOcrResult | null;
+  verified?: boolean;
+}
+
+export interface PilgrimDocumentsView {
+  items: PilgrimDocument[];
+  readiness: DocumentReadiness;
+}

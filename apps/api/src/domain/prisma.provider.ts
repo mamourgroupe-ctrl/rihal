@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { DataProvider } from './data-provider';
 import {
   AuthenticatedUser,
+  CreateDocumentInput,
   CreateGroupInput,
   CreatePilgrimInput,
   DashboardStats,
@@ -11,6 +12,7 @@ import {
   Paginated,
   PILGRIM_STATUSES,
   Pilgrim,
+  PilgrimDocument,
   PilgrimListQuery,
   PilgrimStatus,
   RegisterInput,
@@ -379,6 +381,72 @@ export class PrismaProvider implements DataProvider {
     };
   }
 
+  // ---------------------------------------------------------------- documents
+
+  async listDocuments(
+    tenantId: string,
+    pilgrimId: string,
+  ): Promise<PilgrimDocument[]> {
+    const rows = await this.client.document.findMany({
+      where: { tenantId, pilgrimId },
+      orderBy: { createdAt: 'desc' },
+    });
+    return rows.map((row: any) => this.toDocument(row));
+  }
+
+  async findDocument(
+    tenantId: string,
+    id: string,
+  ): Promise<PilgrimDocument | null> {
+    const row = await this.client.document.findFirst({
+      where: { id, tenantId },
+    });
+    return row ? this.toDocument(row) : null;
+  }
+
+  async createDocument(
+    tenantId: string,
+    pilgrimId: string,
+    input: CreateDocumentInput,
+  ): Promise<PilgrimDocument> {
+    if (!(await this.findPilgrim(tenantId, pilgrimId))) {
+      throw new HttpException('المعتمر غير موجود', HttpStatus.NOT_FOUND);
+    }
+    const row = await this.client.document.create({
+      data: {
+        tenantId,
+        pilgrimId,
+        type: input.type,
+        fileUrl: input.fileUrl,
+        fileName: input.fileName,
+        fileSize: input.fileSize,
+        mimeType: input.mimeType,
+        ocrData: input.ocrData ?? undefined,
+        verified: input.verified ?? false,
+      },
+    });
+    return this.toDocument(row);
+  }
+
+  async setDocumentVerified(
+    tenantId: string,
+    id: string,
+    verified: boolean,
+  ): Promise<PilgrimDocument | null> {
+    if (!(await this.findDocument(tenantId, id))) return null;
+    const row = await this.client.document.update({
+      where: { id },
+      data: { verified },
+    });
+    return this.toDocument(row);
+  }
+
+  async deleteDocument(tenantId: string, id: string): Promise<boolean> {
+    if (!(await this.findDocument(tenantId, id))) return false;
+    await this.client.document.delete({ where: { id } });
+    return true;
+  }
+
   // ----------------------------------------------------------- tenants & auth
 
   async findTenantBySlug(slug: string): Promise<Tenant | null> {
@@ -502,6 +570,22 @@ export class PrismaProvider implements DataProvider {
       dateOfBirth: row.dateOfBirth ? row.dateOfBirth.toISOString() : null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private toDocument(row: any): PilgrimDocument {
+    return {
+      id: row.id,
+      tenantId: row.tenantId,
+      pilgrimId: row.pilgrimId,
+      type: row.type,
+      fileUrl: row.fileUrl,
+      fileName: row.fileName,
+      fileSize: row.fileSize,
+      mimeType: row.mimeType,
+      ocrData: (row.ocrData as any) ?? null,
+      verified: row.verified,
+      createdAt: row.createdAt.toISOString(),
     };
   }
 
