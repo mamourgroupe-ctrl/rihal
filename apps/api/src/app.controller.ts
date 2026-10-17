@@ -1,17 +1,22 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
+import { DataService } from './domain/data.service';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly data: DataService,
+  ) {}
 
   @Get()
   getRoot() {
     return {
       name: 'Rihal API',
-      version: '0.0.1',
+      version: '0.2.0',
       status: 'running',
       message: 'مرحباً بك في API رحال',
+      docs: '/api/health',
     };
   }
 
@@ -22,6 +27,10 @@ export class AppController {
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
+      persistence: {
+        backend: this.data.backend,
+        fallbackReason: this.data.fallbackReason,
+      },
     };
   }
 }

@@ -2,6 +2,10 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { DomainModule } from './domain/domain.module';
+import { GroupsModule } from './groups/groups.module';
+import { PilgrimsModule } from './pilgrims/pilgrims.module';
 
 @Module({
   imports: [
@@ -9,6 +13,10 @@ import { AppService } from './app.service';
       isGlobal: true,
       envFilePath: ['.env', '../../.env'],
     }),
+    DomainModule,
+    PilgrimsModule,
+    GroupsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

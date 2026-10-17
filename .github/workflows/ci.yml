@@ -20,3 +20,5 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @rihal/database db:generate
+      - run: pnpm --filter @rihal/api build
+      - run: pnpm --filter @rihal/api test
