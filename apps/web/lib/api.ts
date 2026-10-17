@@ -2,24 +2,33 @@
 
 const TOKEN_KEY = 'rihal_token';
 
+// Kept in memory as well: hosted previews are sometimes embedded in a
+// sandboxed iframe where localStorage throws, and the session must survive
+// client-side navigation regardless.
+let memoryToken = '';
+
 export function getToken(): string {
+  if (memoryToken) return memoryToken;
   if (typeof window === 'undefined') return '';
   try {
-    return window.localStorage.getItem(TOKEN_KEY) ?? '';
+    memoryToken = window.localStorage.getItem(TOKEN_KEY) ?? '';
+    return memoryToken;
   } catch {
     return '';
   }
 }
 
 export function setToken(token: string): void {
+  memoryToken = token;
   try {
     window.localStorage.setItem(TOKEN_KEY, token);
   } catch {
-    /* storage disabled */
+    /* storage disabled — the in-memory token still works for this session */
   }
 }
 
 export function clearToken(): void {
+  memoryToken = '';
   try {
     window.localStorage.removeItem(TOKEN_KEY);
   } catch {
@@ -53,14 +62,6 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
   });
 
-  if (response.status === 401) {
-    clearToken();
-    if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
-      window.location.href = '/login';
-    }
-    throw new ApiError('انتهت الجلسة — سجّل الدخول من جديد', 401);
-  }
-
   if (response.status === 204) return undefined as T;
 
   const text = await response.text();
@@ -71,9 +72,26 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
     body = text;
   }
 
+  const message = (body as { message?: string | string[] } | null)?.message;
+  const resolved = Array.isArray(message) ? message.join(' · ') : message;
+
+  if (response.status === 401) {
+    // A rejected login is not an expired session: show the API message
+    // instead of reloading the page (which used to hide the real error).
+    const isAuthRequest = path.startsWith('/auth/');
+    if (!isAuthRequest) {
+      clearToken();
+      if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
+    }
+    throw new ApiError(
+      resolved || (isAuthRequest ? 'بيانات الدخول غير صحيحة' : 'انتهت الجلسة — سجّل الدخول من جديد'),
+      401,
+    );
+  }
+
   if (!response.ok) {
-    const message = (body as { message?: string | string[] } | null)?.message;
-    const resolved = Array.isArray(message) ? message.join(' · ') : message;
     throw new ApiError(resolved || 'تعذّر إكمال الطلب', response.status);
   }
 

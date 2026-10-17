@@ -18,10 +18,27 @@ export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [health, setHealth] = useState<'checking' | 'ok' | 'down'>('checking');
+  const [healthAttempt, setHealthAttempt] = useState(0);
 
   useEffect(() => {
     if (ready && user) router.replace('/');
   }, [ready, user, router]);
+
+  useEffect(() => {
+    let alive = true;
+    setHealth('checking');
+    fetch('/api/health')
+      .then((response) => {
+        if (alive) setHealth(response.ok ? 'ok' : 'down');
+      })
+      .catch(() => {
+        if (alive) setHealth('down');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [healthAttempt]);
 
   async function handleLogin(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -30,9 +47,14 @@ export default function LoginPage() {
     setError('');
     try {
       await login(String(form.get('email') ?? ''), String(form.get('password') ?? ''));
-      router.replace('/');
+      // Navigation happens in the effect above once the user state is set,
+      // so we never race the auth context with router.replace().
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'تعذّر تسجيل الدخول');
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'تعذّر الوصول إلى الخادم — تحقق من تشغيل الـ API ثم أعد المحاولة',
+      );
     } finally {
       setBusy(false);
     }
@@ -43,9 +65,12 @@ export default function LoginPage() {
     setError('');
     try {
       await login(email, 'Rihal@2026');
-      router.replace('/');
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'تعذّر تسجيل الدخول');
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : 'تعذّر الوصول إلى الخادم — تحقق من تشغيل الـ API ثم أعد المحاولة',
+      );
     } finally {
       setBusy(false);
     }
@@ -64,7 +89,6 @@ export default function LoginPage() {
         email: String(form.get('email') ?? ''),
         password: String(form.get('password') ?? ''),
       });
-      router.replace('/');
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'تعذّر إنشاء الوكالة');
     } finally {
@@ -83,6 +107,53 @@ export default function LoginPage() {
             </div>
             <div className="text-xs muted">منصة عمليات وكالات الحج والعمرة</div>
           </div>
+        </div>
+
+        <div
+          className="text-xs"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            marginTop: 12,
+            color:
+              health === 'ok'
+                ? 'var(--green)'
+                : health === 'down'
+                  ? 'var(--danger)'
+                  : 'var(--muted)',
+          }}
+        >
+          <span
+            style={{
+              width: 7,
+              height: 7,
+              borderRadius: 999,
+              background: 'currentColor',
+              display: 'inline-block',
+            }}
+          />
+          {health === 'ok'
+            ? 'الخادم متصل'
+            : health === 'down'
+              ? 'تعذّر الوصول إلى الخادم — شغّل pnpm dev:api'
+              : 'جارٍ فحص الاتصال…'}
+          {health === 'down' ? (
+            <button
+              type="button"
+              onClick={() => setHealthAttempt((attempt) => attempt + 1)}
+              style={{
+                border: 0,
+                background: 'transparent',
+                color: 'var(--green)',
+                fontSize: 11,
+                padding: 0,
+                textDecoration: 'underline',
+              }}
+            >
+              إعادة الفحص
+            </button>
+          ) : null}
         </div>
 
         <div className="auth-tabs">
