@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "lint": "eslint src --ext .ts --max-warnings=0",
+    "typecheck": "tsc --noEmit --incremental false -p tsconfig.json",
     "start": "node dist/main.js"
   },
   "dependencies": {
@@ -14,13 +16,14 @@
     "@nestjs/platform-express": "^10.4.15",
     "@rihal/database": "workspace:*",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@nestjs/cli": "^10.4.9",
     "@nestjs/schematics": "^10.2.3",
     "@types/express": "^5.0.0",
     "@types/node": "^22.20.5",
-    "typescript": "^5.6.0"
+    "typescript": "5.9.3"
   }
 }

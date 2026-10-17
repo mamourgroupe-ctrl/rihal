@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -11,7 +12,8 @@ async function bootstrap() {
 
   app.setGlobalPrefix('api');
 
-  const port = process.env.PORT || 4000;
+  const config = app.get(ConfigService);
+  const port = config.get<number>('PORT', 4000);
   await app.listen(port);
 
   console.log(`🚀 Rihal API is running on: http://localhost:${port}/api`);
