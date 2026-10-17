@@ -25,7 +25,23 @@ const nextConfig: NextConfig = {
       {
         // Pages and data must never be served from cache in the hosted preview.
         source: '/:path*',
-        headers: [{ key: 'Cache-Control', value: 'no-store' }],
+        headers: [
+          { key: 'Cache-Control', value: 'no-store' },
+          // Baseline hardening — no script/style directives here on purpose:
+          // the hosted preview wraps the app in its own frame with its own
+          // report-only CSP, and a strict enforced CSP would risk breaking it.
+          // The full production recipe lives in the README.
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), payment=()',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: "object-src 'none'; base-uri 'self'; form-action 'self'",
+          },
+        ],
       },
       {
         // Hashed bundles stay cacheable.

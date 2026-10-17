@@ -192,6 +192,38 @@ curl -X POST http://localhost:4000/api/auth/login \
 | `SUPERVISOR` | إدارة المعتمرين والمجموعات وأعضائها، وتوثيق الوثائق، وإنشاء الفواتير (بلا إصدار/إلغاء) |
 | `VIEWER` | قراءة فقط — تُخفى كل أزرار الكتابة |
 
+### ملاحظات وحدة التحكم (Console) والأمان
+
+قد تظهر في وحدة تحكم المتصفح داخل بيئة المعاينة تحذيران لا علاقة لهما بالتطبيق:
+
+| الرسالة | المصدر | التأثير |
+| :--- | :--- | :--- |
+| `Loading the script '...' violates ...` (Report-Only) | طبقة الاستضافة/البروكسي في المعاينة تحقن رأس `Content-Security-Policy-Report-Only` — تطبيقنا لا يرسل أي سياسة CSP وحمّل سكريبتاته من نفس النطاق فقط | لا شيء — الوضع «تسجيل فقط» ولا يُحجب أي مورد |
+| `The deferred DOM Node could not be resolved to a valid node` | تحذير داخلي من Chrome DevTools حين تتبع عقدة أعاد React رسمها أو حذفها أثناء التحديث | لا شيء — مرتبط بأداة الفحص لا بتطبيق |
+
+التطبيق يرسل رؤوس حماية آمنة لا تكسر أي وضع استضافة: `X-Content-Type-Options`، `Referrer-Policy`،
+`Permissions-Policy`، وسياسة CSP محدودة (`object-src 'none'; base-uri 'self'; form-action 'self'`).
+
+**لنشر إنتاجي خلف بروكسي خاص بك**، أضف سياسة صارمة مع nonce عبر middleware (كما في توثيق Next.js):
+
+```ts
+// middleware.ts — يولّد nonce لكل طلب ويمرّره إلى Next.js لتوقيع سكريبتاته المضمّنة
+const nonce = btoa(crypto.randomUUID());
+const csp = [
+  `default-src 'self'`,
+  `script-src 'self' 'nonce-${nonce}'`,
+  `style-src 'self' 'unsafe-inline'`, // خصائص style={{}} داخل React
+  `img-src 'self' data: blob:`,       // رموز QR تُعرض عبر blob
+  `connect-src 'self'`,
+  `font-src 'self' data:`,
+  `object-src 'none'; base-uri 'self'; form-action 'self'`,
+  // لا تضف frame-ancestors إن أردت تضمين التطبيق في iframe
+].join('; ');
+```
+
+على مستوى بروكسي الاستضافة نفسه يمكن حذف رأس `Content-Security-Policy-Report-Only` أو توسيع
+`script-src` فيه — لكن ذلك إعداد لطبقة الاستضافة لا للتطبيق.
+
 ---
 
 ## 📡 واجهة الـ API
