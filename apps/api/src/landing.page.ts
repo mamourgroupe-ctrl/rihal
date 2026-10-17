@@ -156,6 +156,41 @@ export const LANDING_HTML = /* html */ `<!doctype html>
     #toast.show { opacity: 1; transform: translateX(50%) translateY(0); }
     #toast.error { border-color: rgba(248,113,113,0.4); }
     footer { margin-top: 30px; display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); padding-top: 16px; }
+
+    .auth-screen {
+      position: fixed; inset: 0; z-index: 100; display: grid; place-items: center;
+      padding: 18px; overflow-y: auto;
+      background:
+        radial-gradient(50rem 35rem at 80% -10%, rgba(45, 212, 167, 0.16), transparent 60%),
+        radial-gradient(40rem 30rem at 0% 110%, rgba(217, 179, 108, 0.08), transparent 60%),
+        #070d0b;
+    }
+    .auth-screen[hidden] { display: none; }
+    .auth-card {
+      width: min(440px, 100%); background: #0b1411;
+      border: 1px solid var(--border); border-radius: 22px; padding: 26px;
+      box-shadow: 0 30px 90px rgba(0, 0, 0, 0.55);
+    }
+    .auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+    .auth-brand .logo { width: 48px; height: 48px; font-size: 24px; border-radius: 14px; }
+    .auth-tabs { display: flex; gap: 5px; background: rgba(0, 0, 0, 0.25); padding: 4px; border-radius: 12px; margin-bottom: 16px; }
+    .auth-tab { flex: 1; padding: 8px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font-family: var(--font); font-size: 13px; cursor: pointer; }
+    .auth-tab.active { background: rgba(45, 212, 167, 0.14); color: var(--green); font-weight: 600; }
+    .auth-form { display: grid; gap: 11px; }
+    .auth-form .field input { width: 100%; }
+    .auth-form .btn { width: 100%; padding: 10px; margin-top: 3px; }
+    .auth-error { display: none; padding: 9px 12px; border-radius: 10px; background: rgba(248,113,113,0.1); border: 1px solid rgba(248,113,113,0.25); color: #fca5a5; font-size: 12px; }
+    .demo { margin-top: 18px; border-top: 1px dashed var(--border); padding-top: 14px; }
+    .demo-title { font-size: 11.5px; color: var(--muted); margin-bottom: 8px; }
+    .demo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+    .demo-btn { font-family: var(--font); font-size: 11px; padding: 7px 9px; border-radius: 9px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); color: var(--muted); cursor: pointer; text-align: right; line-height: 1.5; }
+    .demo-btn:hover { border-color: rgba(45, 212, 167, 0.4); color: var(--green); }
+    .demo-btn b { display: block; font-size: 11.5px; color: var(--text); font-weight: 600; }
+    .user-chip { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 999px; background: rgba(255,255,255,0.04); border: 1px solid var(--border); font-size: 12px; }
+    .user-chip[hidden] { display: none; }
+    .role-badge { font-size: 10.5px; padding: 1px 7px; border-radius: 999px; background: rgba(217,179,108,0.12); color: #e8c88f; border: 1px solid rgba(217,179,108,0.3); }
+    .logout { background: transparent; border: 0; color: var(--muted); cursor: pointer; font-size: 11px; font-family: var(--font); padding: 0; }
+    .logout:hover { color: var(--danger); }
     @media (max-width: 640px) {
       td, th { padding: 10px 12px; }
       .hide-sm { display: none; }
@@ -164,6 +199,65 @@ export const LANDING_HTML = /* html */ `<!doctype html>
   </style>
 </head>
 <body>
+
+<div class="auth-screen" id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="logo">🕌</div>
+      <div>
+        <div style="font-weight:700;font-size:20px">رحال <span style="color:var(--muted);font-weight:400;font-size:15px">Rihal</span></div>
+        <div style="font-size:12px;color:var(--muted)">لوحة عمليات وكالة الحج والعمرة</div>
+      </div>
+    </div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-auth-tab="login" type="button">تسجيل الدخول</button>
+      <button class="auth-tab" data-auth-tab="register" type="button">وكالة جديدة</button>
+    </div>
+
+    <form class="auth-form" id="login-form">
+      <label class="field">البريد الإلكتروني
+        <input name="email" type="email" required placeholder="admin@rihal.demo" dir="ltr" autocomplete="username" />
+      </label>
+      <label class="field">كلمة المرور
+        <input name="password" type="password" required minlength="8" placeholder="••••••••" dir="ltr" autocomplete="current-password" />
+      </label>
+      <div class="auth-error" id="login-error"></div>
+      <button class="btn" type="submit">دخول</button>
+    </form>
+
+    <form class="auth-form" id="register-form" hidden>
+      <label class="field">اسم الوكالة *
+        <input name="agencyName" required minlength="2" maxlength="120" placeholder="وكالة النور للعمرة" />
+      </label>
+      <label class="field">معرّف الوكالة (slug) *
+        <input name="slug" required minlength="3" maxlength="64" placeholder="alnoor" dir="ltr" pattern="[a-z0-9][a-z0-9-]{1,62}[a-z0-9]" />
+      </label>
+      <label class="field">اسم المدير *
+        <input name="name" required minlength="2" maxlength="120" placeholder="أحمد العلي" />
+      </label>
+      <label class="field">البريد الإلكتروني *
+        <input name="email" type="email" required placeholder="admin@alnoor.demo" dir="ltr" />
+      </label>
+      <label class="field">كلمة المرور *
+        <input name="password" type="password" required minlength="8" placeholder="8 أحرف على الأقل، حرف ورقم" dir="ltr" />
+      </label>
+      <div class="auth-error" id="register-error"></div>
+      <button class="btn" type="submit">إنشاء الوكالة والدخول</button>
+    </form>
+
+    <div class="demo" id="demo-box">
+      <div class="demo-title">حسابات تجريبية — كلمة المرور: Rihal@2026</div>
+      <div class="demo-grid">
+        <button class="demo-btn" data-demo="admin@rihal.demo" type="button"><b>مدير الوكالة</b>ADMIN — كامل الصلاحيات</button>
+        <button class="demo-btn" data-demo="operator@rihal.demo" type="button"><b>منسّق العمليات</b>OPERATOR — إضافة وتعديل</button>
+        <button class="demo-btn" data-demo="supervisor@rihal.demo" type="button"><b>مشرف المجموعات</b>SUPERVISOR — إدارة المجموعات</button>
+        <button class="demo-btn" data-demo="viewer@rihal.demo" type="button"><b>مطّلع</b>VIEWER — قراءة فقط</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="wrap">
   <header>
     <div class="logo">🕌</div>
@@ -172,6 +266,11 @@ export const LANDING_HTML = /* html */ `<!doctype html>
       <p class="tagline">لوحة عمليات وكالة الحج والعمرة — المعتمرون، المجموعات، والجاهزية</p>
     </div>
     <div class="header-side">
+      <div class="user-chip" id="user-chip" hidden>
+        <span id="user-name"></span>
+        <span class="role-badge" id="user-role"></span>
+        <button class="logout" id="logout" type="button">خروج</button>
+      </div>
       <span class="pill neutral" id="backend-pill">قاعدة البيانات: …</span>
       <span class="pill" id="status-pill"><span class="dot" id="status-dot"></span><span id="status-text">جارٍ الاتصال…</span></span>
     </div>
@@ -260,7 +359,7 @@ export const LANDING_HTML = /* html */ `<!doctype html>
 
   <footer>
     <span>Rihal API · v0.2.0 — Proprietary © 2026 Mamourgroupe</span>
-    <span id="footer-note">عزل المستأجرين عبر x-tenant-id · حماية RLS على مستوى PostgreSQL</span>
+    <span id="footer-note">مصادقة JWT + أدوار · عزل المستأجرين في الاستعلامات و RLS على مستوى PostgreSQL</span>
   </footer>
 </div>
 
@@ -384,6 +483,80 @@ export const LANDING_HTML = /* html */ `<!doctype html>
   var state = { page: 1, limit: 8, search: '', status: '', pages: 1, total: 0 };
   var searchTimer = null;
 
+  // ------------------------------------------------------------------ auth
+  var TOKEN_KEY = 'rihal_token';
+  var token = '';
+  var currentUser = null;
+  var canWrite = false;
+  var canDelete = false;
+  var ROLE_LABELS = {
+    ADMIN: 'مدير الوكالة',
+    OPERATOR: 'منسّق العمليات',
+    SUPERVISOR: 'مشرف المجموعات',
+    VIEWER: 'مطّلع'
+  };
+
+  function storageGet(key) {
+    try { return window.localStorage.getItem(key); } catch (error) { return null; }
+  }
+  function storageSet(key, value) {
+    try { window.localStorage.setItem(key, value); } catch (error) { /* private mode */ }
+  }
+  function storageRemove(key) {
+    try { window.localStorage.removeItem(key); } catch (error) { /* private mode */ }
+  }
+
+  token = storageGet(TOKEN_KEY) || '';
+
+  function setSession(session) {
+    token = session.accessToken;
+    currentUser = session.user;
+    storageSet(TOKEN_KEY, token);
+    applyPermissions();
+    updateUserChip();
+  }
+
+  function clearSession() {
+    token = '';
+    currentUser = null;
+    storageRemove(TOKEN_KEY);
+    applyPermissions();
+    updateUserChip();
+  }
+
+  function updateUserChip() {
+    var chip = el('user-chip');
+    if (!currentUser) {
+      chip.hidden = true;
+      return;
+    }
+    chip.hidden = false;
+    el('user-name').textContent = currentUser.name;
+    el('user-role').textContent = ROLE_LABELS[currentUser.role] || currentUser.role;
+  }
+
+  function applyPermissions() {
+    var role = currentUser ? currentUser.role : null;
+    canWrite = role === 'ADMIN' || role === 'OPERATOR' || role === 'SUPERVISOR';
+    canDelete = role === 'ADMIN';
+    el('btn-add-pilgrim').hidden = !canWrite;
+    el('btn-add-group').hidden = !canWrite;
+  }
+
+  function showAuthScreen() {
+    el('auth-screen').hidden = false;
+  }
+
+  function hideAuthScreen() {
+    el('auth-screen').hidden = true;
+  }
+
+  function showAuthError(id, message) {
+    var box = el(id);
+    box.textContent = message;
+    box.style.display = 'block';
+  }
+
   function el(id) { return document.getElementById(id); }
 
   function toast(message, isError) {
@@ -414,13 +587,27 @@ export const LANDING_HTML = /* html */ `<!doctype html>
   }
 
   function request(path, options) {
-    return fetch(API + path, Object.assign({ headers: { 'content-type': 'application/json' } }, options || {}))
+    var settings = options || {};
+    var headers = Object.assign(
+      { 'content-type': 'application/json' },
+      settings.headers || {}
+    );
+    if (token) headers.authorization = 'Bearer ' + token;
+
+    return fetch(API + path, Object.assign({}, settings, { headers: headers }))
       .then(function (response) {
+        if (response.status === 401 && token) {
+          clearSession();
+          showAuthScreen();
+          toast('انتهت الجلسة — سجّل الدخول من جديد', true);
+        }
         if (response.status === 204) return null;
         return response.json().then(function (body) {
           if (!response.ok) {
             var message = body && body.message;
-            throw new Error(Array.isArray(message) ? message.join(' · ') : (message || 'طلب غير ناجح'));
+            var error = new Error(Array.isArray(message) ? message.join(' · ') : (message || 'طلب غير ناجح'));
+            error.status = response.status;
+            throw error;
           }
           return body;
         });
@@ -438,7 +625,7 @@ export const LANDING_HTML = /* html */ `<!doctype html>
         pill.textContent = 'بيانات تجريبية (ذاكرة)';
       }
       if (backend !== 'prisma') {
-        el('footer-note').textContent = 'وضع تجريبي: البيانات في الذاكرة — شغّل PostgreSQL و Prisma لتفعيل الحفظ الدائم · عزل المستأجرين عبر x-tenant-id + RLS';
+        el('footer-note').textContent = 'وضع تجريبي: البيانات في الذاكرة — شغّل PostgreSQL و Prisma لتفعيل الحفظ الدائم · مصادقة JWT + RLS';
       }
     }).catch(function () {
       el('status-text').textContent = 'تعذّر الوصول للخدمة';
@@ -496,7 +683,7 @@ export const LANDING_HTML = /* html */ `<!doctype html>
             '<td class="hide-sm">' + escapeHtml(pilgrim.nationality) + '</td>' +
             '<td class="hide-sm">' + formatDate(pilgrim.passportExpiry) + expiryNote + '</td>' +
             '<td>' + badge(pilgrim.status, STATUS_LABELS, STATUS_CLASS) + '</td>' +
-            '<td><button class="btn danger" data-delete="' + escapeHtml(pilgrim.id) + '">حذف</button></td>' +
+            '<td>' + (canDelete ? '<button class="btn danger" data-delete="' + escapeHtml(pilgrim.id) + '">حذف</button>' : '') + '</td>' +
             '</tr>';
         }).join('');
       }
@@ -534,7 +721,7 @@ export const LANDING_HTML = /* html */ `<!doctype html>
           '<div class="group-meta"><span>' + count + ' / ' + group.maxSize + ' عضو</span><span>' + formatDate(group.scheduledDate) + '</span></div>' +
           '<div class="progress"><span style="width:' + percent + '%"></span></div>' +
           (members ? '<div class="members">' + members + '</div>' : '<div class="group-desc">لا يوجد أعضاء بعد</div>') +
-          '<div class="group-actions"><button class="btn danger" data-delete-group="' + escapeHtml(group.id) + '">حذف</button></div>' +
+          '<div class="group-actions">' + (canDelete ? '<button class="btn danger" data-delete-group="' + escapeHtml(group.id) + '">حذف</button>' : '') + '</div>' +
           '</article>';
       }).join('');
     }).catch(function (error) {
@@ -653,9 +840,105 @@ export const LANDING_HTML = /* html */ `<!doctype html>
       });
   });
 
+  // ----------------------------------------------------------- auth flows
+
+  function afterLogin(session, message) {
+    setSession(session);
+    hideAuthScreen();
+    el('login-error').style.display = 'none';
+    el('register-error').style.display = 'none';
+    el('login-form').reset();
+    el('register-form').reset();
+    toast(message || 'مرحباً ' + session.user.name);
+    refreshAll();
+  }
+
+  function performLogin(email, password) {
+    return request('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: email, password: password })
+    }).then(function (session) {
+      afterLogin(session);
+    }).catch(function (error) {
+      showAuthError('login-error', error.message);
+    });
+  }
+
+  document.querySelectorAll('[data-auth-tab]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var tab = button.getAttribute('data-auth-tab');
+      document.querySelectorAll('[data-auth-tab]').forEach(function (item) {
+        item.classList.toggle('active', item === button);
+      });
+      el('login-form').hidden = tab !== 'login';
+      el('register-form').hidden = tab !== 'register';
+      el('demo-box').hidden = tab !== 'login';
+      el('login-error').style.display = 'none';
+      el('register-error').style.display = 'none';
+    });
+  });
+
+  el('login-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = new FormData(event.target);
+    performLogin(String(form.get('email') || ''), String(form.get('password') || ''));
+  });
+
+  el('register-form').addEventListener('submit', function (event) {
+    event.preventDefault();
+    var form = new FormData(event.target);
+    var payload = {};
+    form.forEach(function (value, key) {
+      if (value !== '') payload[key] = value;
+    });
+    request('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    }).then(function (session) {
+      afterLogin(session, 'تم إنشاء الوكالة — أضف أول معتمر');
+    }).catch(function (error) {
+      showAuthError('register-error', error.message);
+    });
+  });
+
+  document.querySelectorAll('[data-demo]').forEach(function (button) {
+    button.addEventListener('click', function () {
+      var email = button.getAttribute('data-demo');
+      el('login-form').elements.email.value = email;
+      el('login-form').elements.password.value = 'Rihal@2026';
+      performLogin(email, 'Rihal@2026');
+    });
+  });
+
+  el('logout').addEventListener('click', function () {
+    clearSession();
+    showAuthScreen();
+    toast('تم تسجيل الخروج');
+  });
+
   loadHealth();
-  refreshAll();
-  setInterval(loadStats, 30000);
+  setInterval(function () {
+    if (currentUser) loadStats();
+  }, 30000);
+
+  // Resume an existing session, otherwise show the login screen.
+  if (!token) {
+    showAuthScreen();
+    applyPermissions();
+  } else {
+    request('/auth/me')
+      .then(function (session) {
+        currentUser = session.user;
+        applyPermissions();
+        updateUserChip();
+        hideAuthScreen();
+        refreshAll();
+      })
+      .catch(function () {
+        clearSession();
+        showAuthScreen();
+      });
+  }
 </script>
 </body>
 </html>`;

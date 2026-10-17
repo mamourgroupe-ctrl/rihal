@@ -1,4 +1,5 @@
 import {
+  AuthenticatedUser,
   CreateGroupInput,
   CreatePilgrimInput,
   DashboardStats,
@@ -7,8 +8,11 @@ import {
   Paginated,
   Pilgrim,
   PilgrimListQuery,
+  RegisterInput,
+  Tenant,
   UpdateGroupInput,
   UpdatePilgrimInput,
+  User,
 } from './types';
 
 /** Either a value or a promise of it — in-memory returns sync, Prisma async. */
@@ -57,4 +61,21 @@ export interface DataProvider {
   ): Awaitable<Group | null>;
 
   stats(tenantId: string): Awaitable<DashboardStats>;
+
+  // ---------------------------------------------------------- tenants & auth
+
+  findTenantBySlug(slug: string): Awaitable<Tenant | null>;
+  findTenantById(id: string): Awaitable<Tenant | null>;
+  createTenantWithAdmin(
+    input: RegisterInput,
+    passwordHash: string,
+  ): Awaitable<{ tenant: Tenant; admin: User }>;
+
+  findUsersByEmail(email: string): Awaitable<User[]>;
+  findUserById(id: string): Awaitable<User | null>;
+  listUsers(tenantId: string): Awaitable<User[]>;
+  touchLastLogin(userId: string, at: string): Awaitable<void>;
+
+  /** Resolved identity for a request (active user + active tenant). */
+  findIdentity(userId: string): Awaitable<AuthenticatedUser | null>;
 }

@@ -3,6 +3,7 @@ import { DataProvider } from './data-provider';
 import { MemoryStore } from './memory.store';
 import { PrismaProvider } from './prisma.provider';
 import {
+  AuthenticatedUser,
   CreateGroupInput,
   CreatePilgrimInput,
   DashboardStats,
@@ -11,8 +12,11 @@ import {
   Paginated,
   Pilgrim,
   PilgrimListQuery,
+  RegisterInput,
+  Tenant,
   UpdateGroupInput,
   UpdatePilgrimInput,
+  User,
 } from './types';
 
 /**
@@ -151,6 +155,43 @@ export class DataService
 
   stats(tenantId: string): Promise<DashboardStats> {
     return this.resolve(this.delegate.stats(tenantId));
+  }
+
+  // ----------------------------------------------------------- tenants & auth
+
+  findTenantBySlug(slug: string): Promise<Tenant | null> {
+    return this.resolve(this.delegate.findTenantBySlug(slug));
+  }
+
+  findTenantById(id: string): Promise<Tenant | null> {
+    return this.resolve(this.delegate.findTenantById(id));
+  }
+
+  createTenantWithAdmin(
+    input: RegisterInput,
+    passwordHash: string,
+  ): Promise<{ tenant: Tenant; admin: User }> {
+    return this.resolve(this.delegate.createTenantWithAdmin(input, passwordHash));
+  }
+
+  findUsersByEmail(email: string): Promise<User[]> {
+    return this.resolve(this.delegate.findUsersByEmail(email));
+  }
+
+  findUserById(id: string): Promise<User | null> {
+    return this.resolve(this.delegate.findUserById(id));
+  }
+
+  listUsers(tenantId: string): Promise<User[]> {
+    return this.resolve(this.delegate.listUsers(tenantId));
+  }
+
+  touchLastLogin(userId: string, at: string): Promise<void> {
+    return this.resolve(this.delegate.touchLastLogin(userId, at));
+  }
+
+  findIdentity(userId: string): Promise<AuthenticatedUser | null> {
+    return this.resolve(this.delegate.findIdentity(userId));
   }
 
   /** Wraps the synchronous in-memory store so callers always await. */

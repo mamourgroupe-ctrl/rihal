@@ -8,15 +8,14 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
-import { Tenant, TenantGuard } from '../common/tenant';
+import { Roles } from '../auth/auth.decorators';
+import { Tenant } from '../common/tenant';
 import { DataService } from '../domain/data.service';
 import { CreatePilgrimDto, ListPilgrimsQueryDto, UpdatePilgrimDto } from './dto';
 import { PilgrimsService } from './pilgrims.service';
 
 @Controller('pilgrims')
-@UseGuards(TenantGuard)
 export class PilgrimsController {
   constructor(
     private readonly pilgrims: PilgrimsService,
@@ -47,12 +46,14 @@ export class PilgrimsController {
   }
 
   /** POST /api/pilgrims */
+  @Roles('ADMIN', 'OPERATOR', 'SUPERVISOR')
   @Post()
   create(@Tenant() tenantId: string, @Body() body: CreatePilgrimDto) {
     return this.pilgrims.create(tenantId, body);
   }
 
   /** PATCH /api/pilgrims/:id */
+  @Roles('ADMIN', 'OPERATOR', 'SUPERVISOR')
   @Patch(':id')
   update(
     @Tenant() tenantId: string,
@@ -63,6 +64,7 @@ export class PilgrimsController {
   }
 
   /** DELETE /api/pilgrims/:id */
+  @Roles('ADMIN')
   @Delete(':id')
   @HttpCode(204)
   async remove(@Tenant() tenantId: string, @Param('id') id: string) {

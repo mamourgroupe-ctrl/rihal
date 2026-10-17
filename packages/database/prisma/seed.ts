@@ -27,7 +27,7 @@ async function main(): Promise<void> {
       tenantId: tenant.id,
       email: 'admin@rihal.demo',
       // bcrypt hash of "Rihal@2026" (replace before any real deployment)
-      passwordHash: '$2b$12$R6p0iYb8oQm1zSx7m0M2QeJ9Wq7G3c8kP1n5vT4rL2uY6hD3fA8sS',
+      passwordHash: '$2b$10$CtNVdXEJeI4i2lTd8Y2O4uJC.tdJjGFzKZqSYqyH68b26S74ORsUS',
       name: 'مدير الوكالة',
       role: 'ADMIN',
       phone: '+966500000001',
@@ -40,9 +40,33 @@ async function main(): Promise<void> {
     create: {
       tenantId: tenant.id,
       email: 'operator@rihal.demo',
-      passwordHash: '$2b$12$R6p0iYb8oQm1zSx7m0M2QeJ9Wq7G3c8kP1n5vT4rL2uY6hD3fA8sS',
+      passwordHash: '$2b$10$CtNVdXEJeI4i2lTd8Y2O4uJC.tdJjGFzKZqSYqyH68b26S74ORsUS',
       name: 'منسّق العمليات',
       role: 'OPERATOR',
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenant.id, email: 'supervisor@rihal.demo' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      email: 'supervisor@rihal.demo',
+      passwordHash: '$2b$10$CtNVdXEJeI4i2lTd8Y2O4uJC.tdJjGFzKZqSYqyH68b26S74ORsUS',
+      name: 'مشرف المجموعات',
+      role: 'SUPERVISOR',
+    },
+  });
+
+  await prisma.user.upsert({
+    where: { tenantId_email: { tenantId: tenant.id, email: 'viewer@rihal.demo' } },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      email: 'viewer@rihal.demo',
+      passwordHash: '$2b$10$CtNVdXEJeI4i2lTd8Y2O4uJC.tdJjGFzKZqSYqyH68b26S74ORsUS',
+      name: 'مطّلع (قراءة فقط)',
+      role: 'VIEWER',
     },
   });
 

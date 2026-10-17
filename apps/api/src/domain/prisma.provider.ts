@@ -1,6 +1,7 @@
 import { HttpException, HttpStatus, Injectable, Logger } from '@nestjs/common';
 import { DataProvider } from './data-provider';
 import {
+  AuthenticatedUser,
   CreateGroupInput,
   CreatePilgrimInput,
   DashboardStats,
@@ -12,8 +13,11 @@ import {
   Pilgrim,
   PilgrimListQuery,
   PilgrimStatus,
+  RegisterInput,
+  Tenant,
   UpdateGroupInput,
   UpdatePilgrimInput,
+  User,
 } from './types';
 
 /**
@@ -375,6 +379,96 @@ export class PrismaProvider implements DataProvider {
     };
   }
 
+  // ----------------------------------------------------------- tenants & auth
+
+  async findTenantBySlug(slug: string): Promise<Tenant | null> {
+    const row = await this.client.tenant.findUnique({
+      where: { slug: slug.trim().toLowerCase() },
+    });
+    return row ? this.toTenant(row) : null;
+  }
+
+  async findTenantById(id: string): Promise<Tenant | null> {
+    const row = await this.client.tenant.findUnique({ where: { id } });
+    return row ? this.toTenant(row) : null;
+  }
+
+  async createTenantWithAdmin(
+    input: RegisterInput,
+    passwordHash: string,
+  ): Promise<{ tenant: Tenant; admin: User }> {
+    const slug = input.slug.trim().toLowerCase();
+    try {
+      return await this.client.$transaction(async (tx: any) => {
+        const tenantRow = await tx.tenant.create({
+          data: { name: input.agencyName.trim(), slug, plan: 'FREE' },
+        });
+        const userRow = await tx.user.create({
+          data: {
+            tenantId: tenantRow.id,
+            email: input.email.trim().toLowerCase(),
+            passwordHash,
+            name: input.name.trim(),
+            role: 'ADMIN',
+            phone: input.phone?.trim() || null,
+          },
+        });
+        return { tenant: this.toTenant(tenantRow), admin: this.toUser(userRow) };
+      });
+    } catch (error: any) {
+      if (error?.code === 'P2002') {
+        throw new HttpException(
+          'معرّف الوكالة (slug) أو البريد مستخدم مسبقاً',
+          HttpStatus.CONFLICT,
+        );
+      }
+      throw this.mapError(error);
+    }
+  }
+
+  async findUsersByEmail(email: string): Promise<User[]> {
+    const rows = await this.client.user.findMany({
+      where: { email: email.trim().toLowerCase(), isActive: true },
+    });
+    return rows.map((row: any) => this.toUser(row));
+  }
+
+  async findUserById(id: string): Promise<User | null> {
+    const row = await this.client.user.findUnique({ where: { id } });
+    return row ? this.toUser(row) : null;
+  }
+
+  async listUsers(tenantId: string): Promise<User[]> {
+    const rows = await this.client.user.findMany({
+      where: { tenantId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return rows.map((row: any) => this.toUser(row));
+  }
+
+  async touchLastLogin(userId: string, at: string): Promise<void> {
+    await this.client.user.update({
+      where: { id: userId },
+      data: { lastLoginAt: new Date(at) },
+    });
+  }
+
+  async findIdentity(userId: string): Promise<AuthenticatedUser | null> {
+    const row = await this.client.user.findUnique({
+      where: { id: userId },
+      include: { tenant: true },
+    });
+    if (!row || !row.isActive) return null;
+    if (row.tenant.status !== 'ACTIVE') return null;
+    return {
+      id: row.id,
+      tenantId: row.tenantId,
+      email: row.email,
+      name: row.name,
+      role: row.role,
+    };
+  }
+
   // ----------------------------------------------------------------- mapping
 
   private toPilgrimData(input: CreatePilgrimInput | UpdatePilgrimInput) {
@@ -406,6 +500,23 @@ export class PrismaProvider implements DataProvider {
       ...row,
       passportExpiry: row.passportExpiry.toISOString(),
       dateOfBirth: row.dateOfBirth ? row.dateOfBirth.toISOString() : null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private toTenant(row: any): Tenant {
+    return {
+      ...row,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
+  private toUser(row: any): User {
+    return {
+      ...row,
+      lastLoginAt: row.lastLoginAt ? row.lastLoginAt.toISOString() : null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

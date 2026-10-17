@@ -1,5 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import {
+  AuthenticatedUser,
   CreateGroupInput,
   CreatePilgrimInput,
   DashboardStats,
@@ -13,8 +14,12 @@ import {
   Pilgrim,
   PilgrimListQuery,
   PilgrimStatus,
+  RegisterInput,
+  Role,
+  Tenant,
   UpdateGroupInput,
   UpdatePilgrimInput,
+  User,
 } from '../domain/types';
 
 /**
@@ -28,6 +33,8 @@ import {
 export class MemoryStore {
   readonly backend = 'memory' as const;
 
+  private readonly tenants = new Map<string, Tenant>();
+  private readonly users = new Map<string, User>();
   private readonly pilgrims = new Map<string, Pilgrim>();
   private readonly groups = new Map<string, Group>();
   private readonly members: GroupMember[] = [];
@@ -426,10 +433,143 @@ export class MemoryStore {
     };
   }
 
+
+  // ----------------------------------------------------------- tenants & auth
+
+  findTenantBySlug(slug: string): Tenant | null {
+    return (
+      [...this.tenants.values()].find(
+        (tenant) => tenant.slug.toLowerCase() === slug.trim().toLowerCase(),
+      ) ?? null
+    );
+  }
+
+  findTenantById(id: string): Tenant | null {
+    return this.tenants.get(id) ?? null;
+  }
+
+  createTenantWithAdmin(
+    input: RegisterInput,
+    passwordHash: string,
+  ): { tenant: Tenant; admin: User } {
+    const slug = input.slug.trim().toLowerCase();
+    if (this.findTenantBySlug(slug)) {
+      throw new HttpException(
+        'معرّف الوكالة (slug) مستخدم مسبقاً',
+        HttpStatus.CONFLICT,
+      );
+    }
+
+    const timestamp = this.now();
+    const tenant: Tenant = {
+      id: this.nextId('ten'),
+      name: input.agencyName.trim(),
+      slug,
+      plan: 'FREE',
+      status: 'ACTIVE',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    this.tenants.set(tenant.id, tenant);
+
+    const admin: User = {
+      id: this.nextId('usr'),
+      tenantId: tenant.id,
+      email: input.email.trim().toLowerCase(),
+      passwordHash,
+      name: input.name.trim(),
+      role: 'ADMIN',
+      phone: input.phone?.trim() || null,
+      isActive: true,
+      lastLoginAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    this.users.set(admin.id, admin);
+
+    return { tenant, admin };
+  }
+
+  findUsersByEmail(email: string): User[] {
+    const normalized = email.trim().toLowerCase();
+    return [...this.users.values()].filter(
+      (user) => user.email === normalized,
+    );
+  }
+
+  findUserById(id: string): User | null {
+    return this.users.get(id) ?? null;
+  }
+
+  listUsers(tenantId: string): User[] {
+    return [...this.users.values()]
+      .filter((user) => user.tenantId === tenantId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  }
+
+  touchLastLogin(userId: string, at: string): void {
+    const user = this.users.get(userId);
+    if (user) {
+      user.lastLoginAt = at;
+      user.updatedAt = at;
+    }
+  }
+
+  findIdentity(userId: string): AuthenticatedUser | null {
+    const user = this.users.get(userId);
+    if (!user || !user.isActive) return null;
+    const tenant = this.tenants.get(user.tenantId);
+    if (!tenant || tenant.status !== 'ACTIVE') return null;
+    return {
+      id: user.id,
+      tenantId: user.tenantId,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+    };
+  }
+
   // TODO: remove demo seed once Prisma is connected.
+
   private seed(): void {
     const tenant = 'tenant_demo';
     const now = new Date();
+
+    const timestamp = now.toISOString();
+    this.tenants.set(tenant, {
+      id: tenant,
+      name: 'وكالة رحال التجريبية',
+      slug: 'demo',
+      plan: 'PRO',
+      status: 'ACTIVE',
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+
+    const demoHash =
+      '$2b$10$CtNVdXEJeI4i2lTd8Y2O4uJC.tdJjGFzKZqSYqyH68b26S74ORsUS';
+    const demoUsers: Array<[string, string, Role]> = [
+      ['admin@rihal.demo', 'مدير الوكالة', 'ADMIN'],
+      ['operator@rihal.demo', 'منسّق العمليات', 'OPERATOR'],
+      ['supervisor@rihal.demo', 'مشرف المجموعات', 'SUPERVISOR'],
+      ['viewer@rihal.demo', 'مطّلع (قراءة فقط)', 'VIEWER'],
+    ];
+    for (const [email, name, role] of demoUsers) {
+      const user: User = {
+        id: this.nextId('usr'),
+        tenantId: tenant,
+        email,
+        passwordHash: demoHash,
+        name,
+        role,
+        phone: null,
+        isActive: true,
+        lastLoginAt: null,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      this.users.set(user.id, user);
+    }
     const iso = (offsetDays: number) =>
       new Date(now.getTime() + offsetDays * 86_400_000).toISOString();
 

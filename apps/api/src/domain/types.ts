@@ -127,3 +127,59 @@ export interface CreateGroupInput {
 }
 
 export interface UpdateGroupInput extends Partial<CreateGroupInput> {}
+
+// ============================================================
+// TENANTS & AUTH
+// ============================================================
+
+export const ROLES = ['ADMIN', 'OPERATOR', 'SUPERVISOR', 'VIEWER'] as const;
+export type Role = (typeof ROLES)[number];
+
+export const PLANS = ['FREE', 'BASIC', 'PRO', 'ENTERPRISE'] as const;
+export type Plan = (typeof PLANS)[number];
+
+export const TENANT_STATUSES = ['ACTIVE', 'SUSPENDED', 'CANCELLED'] as const;
+export type TenantStatus = (typeof TENANT_STATUSES)[number];
+
+export interface Tenant {
+  id: string;
+  name: string;
+  slug: string;
+  plan: Plan;
+  status: TenantStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface User {
+  id: string;
+  tenantId: string;
+  email: string;
+  passwordHash: string;
+  name: string;
+  role: Role;
+  phone?: string | null;
+  isActive: boolean;
+  lastLoginAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SafeUser = Omit<User, 'passwordHash'>;
+
+export interface RegisterInput {
+  agencyName: string;
+  slug: string;
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
+export interface AuthenticatedUser {
+  id: string;
+  tenantId: string;
+  email: string;
+  name: string;
+  role: Role;
+}

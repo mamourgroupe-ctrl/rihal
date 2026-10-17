@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuthModule } from './auth/auth.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DomainModule } from './domain/domain.module';
 import { GroupsModule } from './groups/groups.module';
@@ -14,6 +15,7 @@ import { PilgrimsModule } from './pilgrims/pilgrims.module';
       envFilePath: ['.env', '../../.env'],
     }),
     DomainModule,
+    AuthModule,
     PilgrimsModule,
     GroupsModule,
     DashboardModule,

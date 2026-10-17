@@ -8,9 +8,9 @@ import {
   Patch,
   Post,
   Query,
-  UseGuards,
 } from '@nestjs/common';
-import { Tenant, TenantGuard } from '../common/tenant';
+import { Roles } from '../auth/auth.decorators';
+import { Tenant } from '../common/tenant';
 import { DataService } from '../domain/data.service';
 import { GroupsService } from './groups.service';
 import {
@@ -21,7 +21,6 @@ import {
 } from './dto';
 
 @Controller('groups')
-@UseGuards(TenantGuard)
 export class GroupsController {
   constructor(
     private readonly groups: GroupsService,
@@ -41,12 +40,14 @@ export class GroupsController {
   }
 
   /** POST /api/groups */
+  @Roles('ADMIN', 'OPERATOR', 'SUPERVISOR')
   @Post()
   create(@Tenant() tenantId: string, @Body() body: CreateGroupDto) {
     return this.data.createGroup(tenantId, body);
   }
 
   /** PATCH /api/groups/:id */
+  @Roles('ADMIN', 'OPERATOR', 'SUPERVISOR')
   @Patch(':id')
   update(
     @Tenant() tenantId: string,
@@ -57,6 +58,7 @@ export class GroupsController {
   }
 
   /** DELETE /api/groups/:id */
+  @Roles('ADMIN')
   @Delete(':id')
   @HttpCode(204)
   async remove(@Tenant() tenantId: string, @Param('id') id: string) {
@@ -64,6 +66,7 @@ export class GroupsController {
   }
 
   /** POST /api/groups/:id/members */
+  @Roles('ADMIN', 'OPERATOR', 'SUPERVISOR')
   @Post(':id/members')
   addMember(
     @Tenant() tenantId: string,
@@ -79,6 +82,7 @@ export class GroupsController {
   }
 
   /** DELETE /api/groups/:id/members/:pilgrimId */
+  @Roles('ADMIN', 'SUPERVISOR')
   @Delete(':id/members/:pilgrimId')
   removeMember(
     @Tenant() tenantId: string,
