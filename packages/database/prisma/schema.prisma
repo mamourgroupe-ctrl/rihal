@@ -16,13 +16,19 @@ datasource db {
 // ============================================
 
 model Tenant {
-  id        String       @id @default(cuid())
-  name      String
-  slug      String       @unique
-  plan      Plan         @default(FREE)
-  status    TenantStatus @default(ACTIVE)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  plan        Plan         @default(FREE)
+  status      TenantStatus @default(ACTIVE)
+  // ZATCA e-invoicing identity (seller party)
+  vatNumber   String?
+  crNumber    String?
+  addressLine String?
+  city        String?
+  country     String       @default("SA")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
 
   users    User[]
   pilgrims Pilgrim[]
@@ -208,23 +214,50 @@ enum DocumentType {
 model Invoice {
   id            String        @id @default(cuid())
   tenantId      String
-  invoiceNumber String
-  amount        Decimal       @db.Decimal(10, 2)
+  // Assigned when the invoice is issued (sequential per tenant/year)
+  invoiceNumber String?
+  uuid          String?
+  buyerName     String
+  buyerVatNumber String?
+  pilgrimId     String?
   currency      String        @default("SAR")
+  vatRate       Decimal       @default(0.15) @db.Decimal(5, 4)
+  subtotal      Decimal       @default(0) @db.Decimal(12, 2)
+  vatAmount     Decimal       @default(0) @db.Decimal(12, 2)
+  total         Decimal       @default(0) @db.Decimal(12, 2)
   status        InvoiceStatus @default(DRAFT)
   zatcaQr       String?
   zatcaHash     String?
+  previousHash  String?
+  notes         String?
   issuedAt      DateTime?
   paidAt        DateTime?
   dueDate       DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  items  InvoiceItem[]
 
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId])
+  @@index([tenantId, status])
   @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Decimal @db.Decimal(10, 2)
+  unitPrice   Decimal @db.Decimal(12, 2)
+  lineTotal   Decimal @db.Decimal(12, 2)
+  sortOrder   Int     @default(0)
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
 }
 
 enum InvoiceStatus {

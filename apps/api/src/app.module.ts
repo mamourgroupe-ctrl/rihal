@@ -7,7 +7,9 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DocumentsModule } from './documents/documents.module';
 import { DomainModule } from './domain/domain.module';
 import { GroupsModule } from './groups/groups.module';
+import { InvoicesModule } from './invoices/invoices.module';
 import { PilgrimsModule } from './pilgrims/pilgrims.module';
+import { TenantModule } from './tenant/tenant.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { PilgrimsModule } from './pilgrims/pilgrims.module';
     PilgrimsModule,
     GroupsModule,
     DocumentsModule,
+    InvoicesModule,
+    TenantModule,
     DashboardModule,
   ],
   controllers: [AppController],

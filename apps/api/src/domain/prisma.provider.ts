@@ -4,11 +4,14 @@ import {
   AuthenticatedUser,
   CreateDocumentInput,
   CreateGroupInput,
+  CreateInvoiceInput,
   CreatePilgrimInput,
   DashboardStats,
   Group,
   GroupStatus,
   GROUP_STATUSES,
+  Invoice,
+  InvoiceListQuery,
   Paginated,
   PILGRIM_STATUSES,
   Pilgrim,
@@ -447,6 +450,144 @@ export class PrismaProvider implements DataProvider {
     return true;
   }
 
+  // ---------------------------------------------------------------- invoices
+
+  async listInvoices(
+    tenantId: string,
+    query: InvoiceListQuery,
+  ): Promise<Paginated<Invoice>> {
+    const where = {
+      tenantId,
+      ...(query.status ? { status: query.status } : {}),
+    };
+    const [total, rows] = await this.client.$transaction([
+      this.client.invoice.count({ where }),
+      this.client.invoice.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (query.page - 1) * query.limit,
+        take: query.limit,
+        include: { items: { orderBy: { sortOrder: 'asc' } } },
+      }),
+    ]);
+    return {
+      items: rows.map((row: any) => this.toInvoice(row)),
+      total,
+      page: query.page,
+      limit: query.limit,
+      pages: Math.max(1, Math.ceil(total / query.limit)),
+    };
+  }
+
+  async findInvoice(tenantId: string, id: string): Promise<Invoice | null> {
+    const row = await this.client.invoice.findFirst({
+      where: { id, tenantId },
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
+    });
+    return row ? this.toInvoice(row) : null;
+  }
+
+  async createInvoice(
+    tenantId: string,
+    input: CreateInvoiceInput,
+  ): Promise<Invoice> {
+    if (input.pilgrimId) {
+      if (!(await this.findPilgrim(tenantId, input.pilgrimId))) {
+        throw new HttpException('المعتمر غير موجود', HttpStatus.NOT_FOUND);
+      }
+    }
+
+    const items = input.items.map((item, index) => ({
+      description: item.description.trim(),
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      lineTotal: Math.round((item.quantity * item.unitPrice + Number.EPSILON) * 100) / 100,
+      sortOrder: index,
+    }));
+    const subtotal =
+      Math.round(
+        (items.reduce((sum, item) => sum + item.lineTotal, 0) + Number.EPSILON) *
+          100,
+      ) / 100;
+    const vatRate = input.vatRate ?? 0.15;
+    const vatAmount = Math.round((subtotal * vatRate + Number.EPSILON) * 100) / 100;
+
+    const row = await this.client.invoice.create({
+      data: {
+        tenantId,
+        buyerName: input.buyerName.trim(),
+        buyerVatNumber: input.buyerVatNumber?.trim() || null,
+        pilgrimId: input.pilgrimId ?? null,
+        currency: (input.currency ?? 'SAR').toUpperCase(),
+        vatRate,
+        subtotal,
+        vatAmount,
+        total: Math.round((subtotal + vatAmount + Number.EPSILON) * 100) / 100,
+        notes: input.notes ?? null,
+        dueDate: input.dueDate ? new Date(input.dueDate) : null,
+        items: { create: items },
+      },
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
+    });
+    return this.toInvoice(row);
+  }
+
+  async updateInvoice(
+    tenantId: string,
+    id: string,
+    patch: Partial<Invoice>,
+  ): Promise<Invoice | null> {
+    if (!(await this.findInvoice(tenantId, id))) return null;
+
+    await this.client.invoice.update({
+      where: { id },
+      data: {
+        ...(patch.invoiceNumber !== undefined && {
+          invoiceNumber: patch.invoiceNumber,
+        }),
+        ...(patch.uuid !== undefined && { uuid: patch.uuid }),
+        ...(patch.status !== undefined && { status: patch.status }),
+        ...(patch.zatcaQr !== undefined && { zatcaQr: patch.zatcaQr }),
+        ...(patch.zatcaHash !== undefined && { zatcaHash: patch.zatcaHash }),
+        ...(patch.previousHash !== undefined && {
+          previousHash: patch.previousHash,
+        }),
+        ...(patch.issuedAt !== undefined && {
+          issuedAt: patch.issuedAt ? new Date(patch.issuedAt) : null,
+        }),
+        ...(patch.paidAt !== undefined && {
+          paidAt: patch.paidAt ? new Date(patch.paidAt) : null,
+        }),
+      },
+    });
+    return this.findInvoice(tenantId, id);
+  }
+
+  async deleteInvoice(tenantId: string, id: string): Promise<boolean> {
+    if (!(await this.findInvoice(tenantId, id))) return false;
+    await this.client.invoice.delete({ where: { id } });
+    return true;
+  }
+
+  async countIssuedInvoices(tenantId: string, year: number): Promise<number> {
+    return this.client.invoice.count({
+      where: {
+        tenantId,
+        status: { not: 'CANCELLED' },
+        invoiceNumber: { startsWith: `INV-${year}-` },
+      },
+    });
+  }
+
+  async lastIssuedInvoice(tenantId: string): Promise<Invoice | null> {
+    const row = await this.client.invoice.findFirst({
+      where: { tenantId, zatcaHash: { not: null } },
+      orderBy: { issuedAt: 'desc' },
+      include: { items: { orderBy: { sortOrder: 'asc' } } },
+    });
+    return row ? this.toInvoice(row) : null;
+  }
+
   // ----------------------------------------------------------- tenants & auth
 
   async findTenantBySlug(slug: string): Promise<Tenant | null> {
@@ -459,6 +600,31 @@ export class PrismaProvider implements DataProvider {
   async findTenantById(id: string): Promise<Tenant | null> {
     const row = await this.client.tenant.findUnique({ where: { id } });
     return row ? this.toTenant(row) : null;
+  }
+
+  async updateTenant(
+    tenantId: string,
+    patch: Partial<Tenant>,
+  ): Promise<Tenant | null> {
+    const exists = await this.findTenantById(tenantId);
+    if (!exists) return null;
+    const row = await this.client.tenant.update({
+      where: { id: tenantId },
+      data: {
+        ...(patch.name !== undefined && { name: patch.name }),
+        ...(patch.vatNumber !== undefined && {
+          vatNumber: patch.vatNumber || null,
+        }),
+        ...(patch.crNumber !== undefined && {
+          crNumber: patch.crNumber || null,
+        }),
+        ...(patch.addressLine !== undefined && {
+          addressLine: patch.addressLine || null,
+        }),
+        ...(patch.city !== undefined && { city: patch.city || null }),
+      },
+    });
+    return this.toTenant(row);
   }
 
   async createTenantWithAdmin(
@@ -573,6 +739,41 @@ export class PrismaProvider implements DataProvider {
     };
   }
 
+  private toInvoice(row: any): Invoice {
+    const num = (value: any) => (value === null || value === undefined ? null : Number(value));
+    return {
+      id: row.id,
+      tenantId: row.tenantId,
+      invoiceNumber: row.invoiceNumber ?? null,
+      uuid: row.uuid ?? null,
+      buyerName: row.buyerName,
+      buyerVatNumber: row.buyerVatNumber ?? null,
+      pilgrimId: row.pilgrimId ?? null,
+      items: (row.items ?? []).map((item: any) => ({
+        id: item.id,
+        description: item.description,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        lineTotal: Number(item.lineTotal),
+      })),
+      currency: row.currency,
+      vatRate: num(row.vatRate) ?? 0.15,
+      subtotal: num(row.subtotal) ?? 0,
+      vatAmount: num(row.vatAmount) ?? 0,
+      total: num(row.total) ?? 0,
+      status: row.status,
+      zatcaQr: row.zatcaQr ?? null,
+      zatcaHash: row.zatcaHash ?? null,
+      previousHash: row.previousHash ?? null,
+      notes: row.notes ?? null,
+      issuedAt: row.issuedAt ? row.issuedAt.toISOString() : null,
+      dueDate: row.dueDate ? row.dueDate.toISOString() : null,
+      paidAt: row.paidAt ? row.paidAt.toISOString() : null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+    };
+  }
+
   private toDocument(row: any): PilgrimDocument {
     return {
       id: row.id,
@@ -592,6 +793,7 @@ export class PrismaProvider implements DataProvider {
   private toTenant(row: any): Tenant {
     return {
       ...row,
+      country: row.country ?? 'SA',
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
     };

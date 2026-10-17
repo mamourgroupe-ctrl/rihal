@@ -17,6 +17,11 @@ async function main(): Promise<void> {
       name: 'وكالة رحال التجريبية',
       plan: 'PRO',
       status: 'ACTIVE',
+      vatNumber: '310123456700003',
+      crNumber: '1010123456',
+      addressLine: 'طريق الملك فهد، حي العليا',
+      city: 'الرياض',
+      country: 'SA',
     },
   });
 

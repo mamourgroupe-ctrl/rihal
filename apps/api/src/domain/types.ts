@@ -147,6 +147,12 @@ export interface Tenant {
   slug: string;
   plan: Plan;
   status: TenantStatus;
+  /** ZATCA seller identity. */
+  vatNumber?: string | null;
+  crNumber?: string | null;
+  addressLine?: string | null;
+  city?: string | null;
+  country: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -266,4 +272,87 @@ export interface CreateDocumentInput {
 export interface PilgrimDocumentsView {
   items: PilgrimDocument[];
   readiness: DocumentReadiness;
+}
+
+// ============================================================
+// INVOICING (ZATCA e-invoicing)
+// ============================================================
+
+export const INVOICE_STATUSES = [
+  'DRAFT',
+  'ISSUED',
+  'PAID',
+  'OVERDUE',
+  'CANCELLED',
+] as const;
+
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  quantity: number;
+  /** Unit price excluding VAT. */
+  unitPrice: number;
+  /** quantity × unitPrice, rounded to 2 decimals. */
+  lineTotal: number;
+}
+
+export interface Invoice {
+  id: string;
+  tenantId: string;
+  invoiceNumber?: string | null;
+  uuid?: string | null;
+  buyerName: string;
+  buyerVatNumber?: string | null;
+  pilgrimId?: string | null;
+  items: InvoiceItem[];
+  currency: string;
+  vatRate: number;
+  subtotal: number;
+  vatAmount: number;
+  total: number;
+  status: InvoiceStatus;
+  /** Base64 TLV payload mandated by ZATCA (tags 1-5). */
+  zatcaQr?: string | null;
+  /** SHA-256 of the invoice document, chained to the previous invoice. */
+  zatcaHash?: string | null;
+  previousHash?: string | null;
+  notes?: string | null;
+  issuedAt?: string | null;
+  dueDate?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateInvoiceItemInput {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface CreateInvoiceInput {
+  buyerName: string;
+  buyerVatNumber?: string;
+  pilgrimId?: string;
+  items: CreateInvoiceItemInput[];
+  currency?: string;
+  vatRate?: number;
+  dueDate?: string;
+  notes?: string;
+}
+
+export interface InvoiceListQuery {
+  status?: InvoiceStatus;
+  page: number;
+  limit: number;
+}
+
+export interface ZatcaQrPayload {
+  sellerName: string;
+  vatNumber: string;
+  timestamp: string;
+  totalWithVat: string;
+  vatTotal: string;
 }

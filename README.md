@@ -11,7 +11,7 @@
 [![NestJS](https://img.shields.io/badge/NestJS-10-red)](https://nestjs.com/)
 [![Prisma](https://img.shields.io/badge/Prisma-6-2D3748)](https://www.prisma.io/)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-336791)](https://www.postgresql.org/)
-[![Tests](https://img.shields.io/badge/tests-25%20passing-brightgreen)](#-الاختبارات)
+[![Tests](https://img.shields.io/badge/tests-38%20passing-brightgreen)](#-الاختبارات)
 
 </div>
 
@@ -46,11 +46,13 @@ rihal/
 │       │   ├── pilgrims/       # CRUD المعتمرين + بحث/تصفية/ترقيم
 │       │   ├── groups/         # المجموعات والأعضاء
 │       │   ├── documents/      # رفع الوثائق + تحقق MRZ + تخزين محمي
+│       │   ├── invoices/       # فوترة + ZATCA QR/TLV + UBL XML + hash chain
+│       │   ├── tenant/         # هوية البائع (الرقم الضريبي/السجل)
 │       │   ├── dashboard/      # مؤشرات الأداء
 │       │   ├── domain/         # Prisma + in-memory providers
 │       │   ├── common/         # @Tenant() من الهوية الموثقة
 │       │   └── landing.page.ts # لوحة RTL + شاشة دخول
-│       └── test/               # 25 اختبار e2e (node:test)
+│       └── test/               # 38 اختبار e2e (node:test)
 ├── packages/
 │   └── database/
 │       └── prisma/
@@ -171,6 +173,19 @@ curl -X POST http://localhost:4000/api/auth/login \
 | `GET` | `/api/documents/:id/download` | تنزيل الملف (يتطلب رمز الوكالة المالكة) | كل الأدوار |
 | `PATCH` | `/api/documents/:id/verify` | توثيق/إلغاء توثيق | `ADMIN` `SUPERVISOR` |
 | `DELETE` | `/api/documents/:id` | حذف الوثيقة وملفها | `ADMIN` `SUPERVISOR` |
+| `GET` | `/api/tenant` | بيانات الوكالة وهوية البائع | كل الأدوار |
+| `PATCH` | `/api/tenant` | تحديث الاسم/الرقم الضريبي/السجل التجاري | `ADMIN` |
+| `GET` | `/api/invoices?status=&page=` | قائمة الفواتير + ملخص مالي | كل الأدوار |
+| `GET` | `/api/invoices/stats` | مؤشرات الفوترة والضريبة | كل الأدوار |
+| `POST` | `/api/invoices` | إنشاء فاتورة (مسودة) ببنودها | `ADMIN` `OPERATOR` `SUPERVISOR` |
+| `GET` | `/api/invoices/:id` | تفاصيل فاتورة | كل الأدوار |
+| `POST` | `/api/invoices/:id/issue` | إصدار: رقم متسلسل + UUID + QR + hash | `ADMIN` `OPERATOR` |
+| `POST` | `/api/invoices/:id/pay` | تسجيل السداد | `ADMIN` `OPERATOR` |
+| `POST` | `/api/invoices/:id/cancel` | إلغاء فاتورة | `ADMIN` |
+| `DELETE` | `/api/invoices/:id` | حذف مسودة/ملغاة فقط | `ADMIN` |
+| `GET` | `/api/invoices/:id/qr` | فك TLV للرمز | كل الأدوار |
+| `GET` | `/api/invoices/:id/qr.svg` | رمز QR قابل للمسح | كل الأدوار |
+| `GET` | `/api/invoices/:id/xml` | UBL 2.1 XML للفاتورة | كل الأدوار |
 
 ### مثال مع مصادقة
 
@@ -235,6 +250,53 @@ curl -X POST http://localhost:4000/api/pilgrims \
 **التحقق اليدوي:** يمكن للمشرف أو المدير توثيق صورة شخصية أو أي وثيقة يدوياً بنقرة،
 وإلغاء التوثيق، وهذا يحدّث جاهزية الحجز فوراً.
 
+
+---
+
+## 🧾 الفوترة الإلكترونية (ZATCA)
+
+فاتورة مبسّطة متوافقة مع متطلبات **ZATCA Phase 1**، والعمليات الحتمية كلها قابلة للتحقق:
+
+| المتطلب | التنفيذ |
+| :--- | :--- |
+| تسلسل الأرقام | `INV-{YYYY}-{0001}` لكل وكالة/سنة، يُخصَّص عند الإصدار فقط |
+| QR (TLV / base64) | الوسوم 1-5: اسم البائع، الرقم الضريبي، الطابع الزمني، الإجمالي شامل الضريبة، مبلغ الضريبة |
+| UUID للفاتورة | `crypto.randomUUID()` |
+| سلسلة التجزئة | `SHA-256(previousHash + XML)` — كل فاتورة مرتبطة بسابقتها |
+| UBL 2.1 XML | `InvoiceTypeCode 388` بنوع `0100000`، أطراف، ضريبة، بنود، QR مضمّن |
+| ضريبة القيمة المضافة | 15% افتراضياً (قابلة للضبط 0-50%) بتقريب نصفي لكل بند ثم للإجمالي |
+
+```bash
+# 1) إنشاء مسودة
+curl -X POST http://localhost:4000/api/invoices \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"buyerName":"شركة النور","items":[{"description":"باقة عمرة","quantity":2,"unitPrice":500}]}'
+
+# 2) الإصدار (يولّد الرقم والـ QR والـ hash)
+curl -X POST http://localhost:4000/api/invoices/$ID/issue -H "authorization: Bearer $TOKEN"
+
+# 3) المخرجات القابلة للتسليم
+curl -H "authorization: Bearer $TOKEN" http://localhost:4000/api/invoices/$ID/qr.svg -o qr.svg
+curl -H "authorization: Bearer $TOKEN" http://localhost:4000/api/invoices/$ID/xml -o invoice.xml
+```
+
+**دورة الحياة:**
+
+```
+DRAFT ──issue──▶ ISSUED ──pay──▶ PAID
+  │                 │
+  └───cancel────────┴──▶ CANCELLED
+```
+
+- لا إصدار مرتين، ولا دفع لمسودة، ولا إلغاء لمدفوعة — كلها `409`.
+- الفاتورة الصادرة غير قابلة للحذف (تبقى للسجل الضريبي)؛ المسودة والملغاة قابلتان.
+- هوية البائع (الاسم، الرقم الضريبي 15 رقماً، السجل التجاري، العنوان) تُدار من `/api/tenant`
+  وتظهر في QR و XML لكل فاتورة جديدة.
+
+> **نطاق صريح:** التوقيع الرقمي (XAdES / CSID) والربط الفعلي ببوابة Fatoora يتطلبان
+> اعتماد ZATCA (OTP + شهادات) — غير منفّذ هنا. أما الرمز والـ hash والسلسلة و UBL فهي
+> المكوّنات الحتمية القابلة للاختبار والمطابقة.
+
 ---
 
 ## 🔐 العزل على مستوى قاعدة البيانات (RLS)
@@ -273,12 +335,14 @@ COMMIT;
 pnpm --filter @rihal/api test
 ```
 
-**25 اختباراً تكاملياً** تغطي: الصحة والصفحة الرئيسية، رفض الطلبات غير الموثقة، الدخول
+**38 اختباراً تكاملياً** تغطي: الصحة والصفحة الرئيسية، رفض الطلبات غير الموثقة، الدخول
 (نجاح/فشل)، `/auth/me`، إدارة المستخدمين، تسجيل وكالة جديدة وعزلها، منع انتحال الوكالة
 بترويسة، CRUD المعتمرين، البحث والتصفية والتحقق، الجواز المكرر، صلاحيات الأدوار،
 المجموعات والأعضاء، ومؤشرات اللوحة — إضافة إلى الوثائق: قراءة MRZ وأرقام التحقق،
 كشف التعارض مع السجل، تدرّج حالة المعتمر صعوداً وهبوطاً، رفض الصيغ/الحجم، التنزيل المحمي
-وعزل الوكالات، وصلاحيات الرفع والتوثيق.
+وعزل الوكالات، وصلاحيات الرفع والتوثيق — وأيضاً الفوترة: حساب الضريبة والتقريب، التحقق
+من المدخلات، الإصدار والتسلسل و UUID، فك ترميز QR ومطابقة قيمه، تسلسل الـ hash، UBL XML
+وتهريب الرموز، دورة الحياة والقيود، صلاحيات الأدوار، عزل الوكالات، وهوية البائع.
 
 ---
 
@@ -291,10 +355,11 @@ pnpm --filter @rihal/api test
 - [x] مصادقة JWT + أدوار + تسجيل وكالة جديدة
 - [x] لوحة عمليات عربية (RTL) + شاشة دخول وواجهة حسب الدور
 - [x] لوحة وثائق داخل الواجهة: قائمة تحقق، رفع، تنزيل، توثيق
+- [x] تبويب الفوترة: إنشاء، إصدار، سداد، رمز QR، وتنزيل XML
 - [x] اختبارات e2e + CI + Docker Compose
 - [ ] Auth.js v5 في واجهة Next.js (استخدام نفس الـ API)
 - [x] رفع الوثائق + تحقق MRZ (ICAO 9303) + محرك OCR قابل للاستبدال
-- [ ] الفوترة ومتوافق ZATCA
+- [x] الفوترة الإلكترونية + QR/TLV + UBL XML + hash chain (ZATCA Phase 1)
 - [ ] إشعارات WhatsApp/SMS عبر BullMQ
 - [ ] Next.js Frontend
 

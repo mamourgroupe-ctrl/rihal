@@ -6,10 +6,13 @@ import {
   AuthenticatedUser,
   CreateDocumentInput,
   CreateGroupInput,
+  CreateInvoiceInput,
   CreatePilgrimInput,
   DashboardStats,
   Group,
   GroupStatus,
+  Invoice,
+  InvoiceListQuery,
   Paginated,
   Pilgrim,
   PilgrimDocument,
@@ -169,6 +172,10 @@ export class DataService
     return this.resolve(this.delegate.findTenantById(id));
   }
 
+  updateTenant(tenantId: string, patch: Partial<Tenant>): Promise<Tenant | null> {
+    return this.resolve(this.delegate.updateTenant(tenantId, patch));
+  }
+
   createTenantWithAdmin(
     input: RegisterInput,
     passwordHash: string,
@@ -224,6 +231,46 @@ export class DataService
 
   deleteDocument(tenantId: string, id: string): Promise<boolean> {
     return this.resolve(this.delegate.deleteDocument(tenantId, id));
+  }
+
+  // ---------------------------------------------------------------- invoices
+
+  listInvoices(
+    tenantId: string,
+    query: InvoiceListQuery,
+  ): Promise<Paginated<Invoice>> {
+    return this.resolve(this.delegate.listInvoices(tenantId, query));
+  }
+
+  findInvoice(tenantId: string, id: string): Promise<Invoice | null> {
+    return this.resolve(this.delegate.findInvoice(tenantId, id));
+  }
+
+  createInvoice(
+    tenantId: string,
+    input: CreateInvoiceInput,
+  ): Promise<Invoice> {
+    return this.resolve(this.delegate.createInvoice(tenantId, input));
+  }
+
+  updateInvoice(
+    tenantId: string,
+    id: string,
+    patch: Partial<Invoice>,
+  ): Promise<Invoice | null> {
+    return this.resolve(this.delegate.updateInvoice(tenantId, id, patch));
+  }
+
+  deleteInvoice(tenantId: string, id: string): Promise<boolean> {
+    return this.resolve(this.delegate.deleteInvoice(tenantId, id));
+  }
+
+  countIssuedInvoices(tenantId: string, year: number): Promise<number> {
+    return this.resolve(this.delegate.countIssuedInvoices(tenantId, year));
+  }
+
+  lastIssuedInvoice(tenantId: string): Promise<Invoice | null> {
+    return this.resolve(this.delegate.lastIssuedInvoice(tenantId));
   }
 
   /** Wraps the synchronous in-memory store so callers always await. */

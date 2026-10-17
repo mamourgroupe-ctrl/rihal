@@ -3,6 +3,7 @@ import {
   AuthenticatedUser,
   CreateDocumentInput,
   CreateGroupInput,
+  CreateInvoiceInput,
   CreatePilgrimInput,
   DashboardStats,
   Gender,
@@ -10,8 +11,11 @@ import {
   GroupMember,
   GROUP_STATUSES,
   GroupStatus,
-  Paginated,
   PILGRIM_STATUSES,
+  Invoice,
+  InvoiceListQuery,
+  InvoiceStatus,
+  Paginated,
   Pilgrim,
   PilgrimDocument,
   PilgrimListQuery,
@@ -23,6 +27,11 @@ import {
   UpdatePilgrimInput,
   User,
 } from '../domain/types';
+
+/** Rounds a monetary amount to 2 decimals (half-up). */
+export function roundMoney(value: number): number {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
 
 /**
  * In-memory store used when no database is reachable.
@@ -41,6 +50,7 @@ export class MemoryStore {
   private readonly groups = new Map<string, Group>();
   private readonly members: GroupMember[] = [];
   private readonly documents = new Map<string, PilgrimDocument>();
+  private readonly invoices = new Map<string, Invoice>();
   private seq = 0;
 
   constructor() {
@@ -498,7 +508,136 @@ export class MemoryStore {
     return true;
   }
 
+
+  // ---------------------------------------------------------------- invoices
+
+  listInvoices(tenantId: string, query: InvoiceListQuery): Paginated<Invoice> {
+    let rows = [...this.invoices.values()].filter(
+      (invoice) => invoice.tenantId === tenantId,
+    );
+    if (query.status) {
+      rows = rows.filter((invoice) => invoice.status === query.status);
+    }
+    rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+    const total = rows.length;
+    const pages = Math.max(1, Math.ceil(total / query.limit));
+    const page = Math.min(Math.max(query.page, 1), pages);
+    const start = (page - 1) * query.limit;
+    return {
+      items: rows.slice(start, start + query.limit),
+      total,
+      page,
+      limit: query.limit,
+      pages,
+    };
+  }
+
+  findInvoice(tenantId: string, id: string): Invoice | null {
+    const invoice = this.invoices.get(id);
+    return invoice && invoice.tenantId === tenantId ? invoice : null;
+  }
+
+  createInvoice(tenantId: string, input: CreateInvoiceInput): Invoice {
+    if (!this.findTenantById(tenantId)) {
+      throw new HttpException('الوكالة غير موجودة', HttpStatus.NOT_FOUND);
+    }
+    if (input.pilgrimId && !this.findPilgrim(tenantId, input.pilgrimId)) {
+      throw new HttpException('المعتمر غير موجود', HttpStatus.NOT_FOUND);
+    }
+
+    const timestamp = this.now();
+    const items = input.items.map((item, index) => ({
+      id: this.nextId('itm'),
+      description: item.description.trim(),
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      lineTotal: roundMoney(item.quantity * item.unitPrice),
+      sortOrder: index,
+    }));
+
+    const subtotal = roundMoney(
+      items.reduce((sum, item) => sum + item.lineTotal, 0),
+    );
+    const vatRate = input.vatRate ?? 0.15;
+    const vatAmount = roundMoney(subtotal * vatRate);
+
+    const invoice: Invoice = {
+      id: this.nextId('inv'),
+      tenantId,
+      invoiceNumber: null,
+      uuid: null,
+      buyerName: input.buyerName.trim(),
+      buyerVatNumber: input.buyerVatNumber?.trim() || null,
+      pilgrimId: input.pilgrimId ?? null,
+      items,
+      currency: (input.currency ?? 'SAR').toUpperCase(),
+      vatRate,
+      subtotal,
+      vatAmount,
+      total: roundMoney(subtotal + vatAmount),
+      status: 'DRAFT',
+      zatcaQr: null,
+      zatcaHash: null,
+      previousHash: null,
+      notes: input.notes?.trim() || null,
+      issuedAt: null,
+      dueDate: input.dueDate ? new Date(input.dueDate).toISOString() : null,
+      paidAt: null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    this.invoices.set(invoice.id, invoice);
+    return invoice;
+  }
+
+  updateInvoice(
+    tenantId: string,
+    id: string,
+    patch: Partial<Invoice>,
+  ): Invoice | null {
+    const current = this.findInvoice(tenantId, id);
+    if (!current) return null;
+    const updated: Invoice = {
+      ...current,
+      ...patch,
+      tenantId,
+      id,
+      updatedAt: this.now(),
+    };
+    this.invoices.set(id, updated);
+    return updated;
+  }
+
+  deleteInvoice(tenantId: string, id: string): boolean {
+    if (!this.findInvoice(tenantId, id)) return false;
+    this.invoices.delete(id);
+    return true;
+  }
+
+  countIssuedInvoices(tenantId: string, year: number): number {
+    return [...this.invoices.values()].filter(
+      (invoice) =>
+        invoice.tenantId === tenantId &&
+        invoice.invoiceNumber &&
+        invoice.invoiceNumber.includes(`-${year}-`) &&
+        invoice.status !== 'CANCELLED',
+    ).length;
+  }
+
+  lastIssuedInvoice(tenantId: string): Invoice | null {
+    return (
+      [...this.invoices.values()]
+        .filter(
+          (invoice) => invoice.tenantId === tenantId && invoice.zatcaHash,
+        )
+        .sort((a, b) => (b.issuedAt ?? '').localeCompare(a.issuedAt ?? ''))[0] ??
+      null
+    );
+  }
+
   // ----------------------------------------------------------- tenants & auth
+
 
   findTenantBySlug(slug: string): Tenant | null {
     return (
@@ -510,6 +649,28 @@ export class MemoryStore {
 
   findTenantById(id: string): Tenant | null {
     return this.tenants.get(id) ?? null;
+  }
+
+  updateTenant(tenantId: string, patch: Partial<Tenant>): Tenant | null {
+    const current = this.tenants.get(tenantId);
+    if (!current) return null;
+    const updated: Tenant = {
+      ...current,
+      ...(patch.name !== undefined && { name: patch.name.trim() }),
+      ...(patch.vatNumber !== undefined && {
+        vatNumber: patch.vatNumber?.trim() || null,
+      }),
+      ...(patch.crNumber !== undefined && {
+        crNumber: patch.crNumber?.trim() || null,
+      }),
+      ...(patch.addressLine !== undefined && {
+        addressLine: patch.addressLine?.trim() || null,
+      }),
+      ...(patch.city !== undefined && { city: patch.city?.trim() || null }),
+      updatedAt: this.now(),
+    };
+    this.tenants.set(tenantId, updated);
+    return updated;
   }
 
   createTenantWithAdmin(
@@ -531,6 +692,11 @@ export class MemoryStore {
       slug,
       plan: 'FREE',
       status: 'ACTIVE',
+      vatNumber: null,
+      crNumber: null,
+      addressLine: null,
+      city: null,
+      country: 'SA',
       createdAt: timestamp,
       updatedAt: timestamp,
     };
@@ -606,6 +772,11 @@ export class MemoryStore {
       slug: 'demo',
       plan: 'PRO',
       status: 'ACTIVE',
+      vatNumber: '310123456700003',
+      crNumber: '1010123456',
+      addressLine: 'طريق الملك فهد، حي العليا',
+      city: 'الرياض',
+      country: 'SA',
       createdAt: timestamp,
       updatedAt: timestamp,
     });

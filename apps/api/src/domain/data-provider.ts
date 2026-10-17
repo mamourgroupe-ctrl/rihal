@@ -2,10 +2,13 @@ import {
   AuthenticatedUser,
   CreateDocumentInput,
   CreateGroupInput,
+  CreateInvoiceInput,
   CreatePilgrimInput,
   DashboardStats,
   Group,
   GroupStatus,
+  Invoice,
+  InvoiceListQuery,
   Paginated,
   Pilgrim,
   PilgrimDocument,
@@ -68,6 +71,10 @@ export interface DataProvider {
 
   findTenantBySlug(slug: string): Awaitable<Tenant | null>;
   findTenantById(id: string): Awaitable<Tenant | null>;
+  updateTenant(
+    tenantId: string,
+    patch: Partial<Tenant>,
+  ): Awaitable<Tenant | null>;
   createTenantWithAdmin(
     input: RegisterInput,
     passwordHash: string,
@@ -96,4 +103,24 @@ export interface DataProvider {
     verified: boolean,
   ): Awaitable<PilgrimDocument | null>;
   deleteDocument(tenantId: string, id: string): Awaitable<boolean>;
+
+  // ----------------------------------------------------------------- invoices
+
+  listInvoices(
+    tenantId: string,
+    query: InvoiceListQuery,
+  ): Awaitable<Paginated<Invoice>>;
+  findInvoice(tenantId: string, id: string): Awaitable<Invoice | null>;
+  createInvoice(
+    tenantId: string,
+    input: CreateInvoiceInput,
+  ): Awaitable<Invoice>;
+  updateInvoice(
+    tenantId: string,
+    id: string,
+    patch: Partial<Invoice>,
+  ): Awaitable<Invoice | null>;
+  deleteInvoice(tenantId: string, id: string): Awaitable<boolean>;
+  countIssuedInvoices(tenantId: string, year: number): Awaitable<number>;
+  lastIssuedInvoice(tenantId: string): Awaitable<Invoice | null>;
 }
