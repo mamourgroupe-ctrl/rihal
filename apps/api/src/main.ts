@@ -56,10 +56,12 @@ async function bootstrap() {
     <div class="links">
       <a class="link" href="/api"><div class="icon">🚀</div><div><strong>GET /api</strong><small>الرسالة الترحيبية - Welcome</small></div></a>
       <a class="link" href="/api/health"><div class="icon">❤️</div><div><strong>GET /api/health</strong><small>فحص الصحة - Health check</small></div></a>
-      <a class="link" href="/health"><div class="icon">❤️</div><div><strong>GET /health</strong><small>فحص الصحة (بدون /api)</small></div></a>
-      <a class="link" href="/api" target="_blank"><div class="icon">📖</div><div><strong>JSON مباشر</strong><small>عرض الاستجابة الخام</small></div></a>
+      <a class="link" href="/api/pilgrims"><div class="icon">🧕</div><div><strong>GET /api/pilgrims</strong><small>قائمة المعتمرين</small></div></a>
+      <a class="link" href="/api/groups"><div class="icon">👥</div><div><strong>GET /api/groups</strong><small>الأفواج</small></div></a>
+      <a class="link" href="/api/invoices"><div class="icon">💳</div><div><strong>GET /api/invoices</strong><small>الفواتير</small></div></a>
+      <a class="link" href="/api/pilgrims/stats"><div class="icon">📊</div><div><strong>GET /api/pilgrims/stats</strong><small>إحصائيات</small></div></a>
     </div>
-    <p style="font-size:13px;color:var(--muted)">جرب في الطرفية: <code>curl http://localhost:4000/api/health</code></p>
+    <p style="font-size:13px;color:var(--muted)">الواجهة الأمامية: <code>http://localhost:3000</code> • جرب: <code>curl http://localhost:4000/api/pilgrims</code></p>
     <footer>© 2026 Mamourgroupe • Rihal v0.1.0 • Turborepo + pnpm</footer>
   </div>
 </body>

@@ -4,6 +4,9 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { PilgrimsModule } from './pilgrims/pilgrims.module';
+import { GroupsModule } from './groups/groups.module';
+import { InvoicesModule } from './invoices/invoices.module';
 
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -31,6 +34,9 @@ const envSchema = z.object({
         return result.data;
       },
     }),
+    PilgrimsModule,
+    GroupsModule,
+    InvoicesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
