@@ -1,0 +1,19 @@
+{
+  "name": "@rihal-v2/database",
+  "version": "0.1.0",
+  "private": true,
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "6.19.3",
+    "@prisma/client": "6.19.3"
+  },
+  "devDependencies": {
+    "prisma": "6.19.3"
+  }
+}
