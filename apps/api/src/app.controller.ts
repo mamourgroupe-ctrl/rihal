@@ -1,10 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { Public } from './auth/auth.decorators';
 
 @Controller()
 export class AppController {
   constructor(private readonly config: ConfigService) {}
 
+  @Public()
   @Get()
   getRoot() {
     return {
@@ -15,6 +17,7 @@ export class AppController {
     };
   }
 
+  @Public()
   @Get('health')
   getHealth() {
     return {
