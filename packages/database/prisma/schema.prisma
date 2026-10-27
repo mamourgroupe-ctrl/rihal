@@ -16,19 +16,22 @@ datasource db {
 // ============================================
 
 model Tenant {
-  id        String       @id @default(cuid())
-  name      String
-  slug      String       @unique
-  plan      Plan         @default(FREE)
-  status    TenantStatus @default(ACTIVE)
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id            String       @id @default(cuid())
+  name          String
+  slug          String       @unique
+  plan          Plan         @default(FREE)
+  status        TenantStatus @default(ACTIVE)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  archivedAt    DateTime?
 
-  users    User[]
-  pilgrims Pilgrim[]
-  groups   Group[]
-  invoices Invoice[]
+  users         User[]
+  pilgrims      Pilgrim[]
+  groups        Group[]
+  invoices      Invoice[]
+  notifications Notification[]
 
+  @@index([archivedAt])
   @@map("tenants")
 }
 
@@ -61,11 +64,14 @@ model User {
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  archivedAt   DateTime?
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  notifications Notification[] @relation("NotificationUser")
 
   @@unique([tenantId, email])
-  @@index([tenantId])
+  @@unique([tenantId, id])
+  @@index([tenantId, archivedAt])
   @@map("users")
 }
 
@@ -96,13 +102,17 @@ model Pilgrim {
   notes          String?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
+  archivedAt     DateTime?
 
-  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  groupMembers GroupMember[]
-  documents    Document[]
+  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  groupMembers  GroupMember[]
+  documents     Document[]
+  invoices      Invoice[]
+  notifications Notification[] @relation("NotificationPilgrim")
 
   @@unique([tenantId, passportNumber])
-  @@index([tenantId])
+  @@unique([tenantId, id])
+  @@index([tenantId, archivedAt])
   @@index([tenantId, status])
   @@map("pilgrims")
 }
@@ -137,11 +147,13 @@ model Group {
   scheduledDate DateTime?
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+  archivedAt    DateTime?
 
-  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
   members GroupMember[]
 
-  @@index([tenantId])
+  @@unique([tenantId, id])
+  @@index([tenantId, archivedAt])
   @@map("groups")
 }
 
@@ -155,16 +167,19 @@ enum GroupStatus {
 }
 
 model GroupMember {
-  id        String   @id @default(cuid())
-  groupId   String
-  pilgrimId String
-  isLeader  Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id         String    @id @default(cuid())
+  tenantId   String
+  groupId    String
+  pilgrimId  String
+  isLeader   Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  archivedAt DateTime?
 
-  group   Group   @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  pilgrim Pilgrim @relation(fields: [pilgrimId], references: [id], onDelete: Cascade)
+  group   Group   @relation(fields: [tenantId, groupId], references: [tenantId, id], onDelete: Restrict)
+  pilgrim Pilgrim @relation(fields: [tenantId, pilgrimId], references: [tenantId, id], onDelete: Restrict)
 
-  @@unique([groupId, pilgrimId])
+  @@index([tenantId, groupId, archivedAt])
+  @@index([tenantId, pilgrimId, archivedAt])
   @@map("group_members")
 }
 
@@ -173,22 +188,23 @@ model GroupMember {
 // ============================================
 
 model Document {
-  id        String       @id @default(cuid())
-  tenantId  String
-  pilgrimId String
-  type      DocumentType
-  fileUrl   String
-  fileName  String
-  fileSize  Int
-  mimeType  String
-  ocrData   Json?
-  verified  Boolean      @default(false)
-  createdAt DateTime     @default(now())
+  id         String       @id @default(cuid())
+  tenantId   String
+  pilgrimId  String
+  type       DocumentType
+  storageKey String
+  fileName   String
+  fileSize   Int
+  mimeType   String
+  ocrData    Json?
+  verified   Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  archivedAt DateTime?
 
-  pilgrim Pilgrim @relation(fields: [pilgrimId], references: [id], onDelete: Cascade)
+  pilgrim Pilgrim @relation(fields: [tenantId, pilgrimId], references: [tenantId, id], onDelete: Restrict)
 
-  @@index([tenantId])
-  @@index([pilgrimId])
+  @@index([tenantId, archivedAt])
+  @@index([tenantId, pilgrimId])
   @@map("documents")
 }
 
@@ -209,6 +225,8 @@ model Invoice {
   id            String        @id @default(cuid())
   tenantId      String
   invoiceNumber String
+  customerName  String?
+  pilgrimId     String?
   amount        Decimal       @db.Decimal(10, 2)
   currency      String        @default("SAR")
   status        InvoiceStatus @default(DRAFT)
@@ -219,11 +237,15 @@ model Invoice {
   dueDate       DateTime?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
+  archivedAt    DateTime?
 
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  pilgrim Pilgrim?      @relation(fields: [tenantId, pilgrimId], references: [tenantId, id], onDelete: Restrict)
+  items   InvoiceItem[]
 
   @@unique([tenantId, invoiceNumber])
-  @@index([tenantId])
+  @@unique([tenantId, id])
+  @@index([tenantId, archivedAt])
   @@map("invoices")
 }
 
@@ -235,25 +257,47 @@ enum InvoiceStatus {
   CANCELLED
 }
 
+model InvoiceItem {
+  id         String   @id @default(cuid())
+  tenantId   String
+  invoiceId  String
+  description String
+  quantity   Int
+  unitPrice  Decimal  @db.Decimal(10, 2)
+  lineTotal  Decimal  @db.Decimal(10, 2)
+  createdAt  DateTime @default(now())
+  archivedAt DateTime?
+
+  invoice Invoice @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, invoiceId, archivedAt])
+  @@map("invoice_items")
+}
+
 // ============================================
 // NOTIFICATIONS
 // ============================================
 
 model Notification {
-  id        String               @id @default(cuid())
-  tenantId  String
-  userId    String?
-  pilgrimId String?
-  channel   NotificationChannel
-  template  String
-  payload   Json
-  status    NotificationStatus   @default(PENDING)
-  sentAt    DateTime?
-  error     String?
-  createdAt DateTime             @default(now())
+  id         String               @id @default(cuid())
+  tenantId   String
+  userId     String?
+  pilgrimId  String?
+  channel    NotificationChannel
+  template   String
+  payload    Json
+  status     NotificationStatus   @default(PENDING)
+  sentAt     DateTime?
+  error      String?
+  createdAt  DateTime             @default(now())
+  archivedAt DateTime?
 
-  @@index([tenantId])
-  @@index([status])
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  user    User?    @relation("NotificationUser", fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+  pilgrim Pilgrim? @relation("NotificationPilgrim", fields: [tenantId, pilgrimId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, archivedAt])
+  @@index([tenantId, status])
   @@map("notifications")
 }
 

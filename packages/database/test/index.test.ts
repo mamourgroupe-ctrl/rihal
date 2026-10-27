@@ -34,7 +34,7 @@ describe('database client', () => {
 
     expect(prismaClientConstructor).toHaveBeenCalledOnce();
     expect(prismaClientConstructor).toHaveBeenCalledWith({
-      log: ['query', 'error', 'warn'],
+      log: ['error', 'warn'],
     });
 
     vi.resetModules();
