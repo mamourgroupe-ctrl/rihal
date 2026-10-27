@@ -66,8 +66,10 @@ model User {
   updatedAt    DateTime  @updatedAt
   archivedAt   DateTime?
 
-  tenant        Tenant         @relation(fields: [tenantId], references: [id], onDelete: Restrict)
-  notifications Notification[] @relation("NotificationUser")
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  notifications       Notification[]       @relation("NotificationUser")
+  authSessions        AuthSession[]
+  passwordResetTokens PasswordResetToken[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, id])
@@ -80,6 +82,53 @@ enum Role {
   OPERATOR
   SUPERVISOR
   VIEWER
+}
+
+model AuthSession {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+
+  user          User           @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+  refreshTokens RefreshToken[]
+
+  @@index([tenantId, userId, revokedAt])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model RefreshToken {
+  id         String   @id @default(cuid())
+  sessionId  String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  createdAt  DateTime @default(now())
+
+  session AuthSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+
+  @@index([sessionId, expiresAt])
+  @@map("refresh_tokens")
+}
+
+model PasswordResetToken {
+  id         String   @id @default(cuid())
+  tenantId   String
+  userId     String
+  tokenHash  String   @unique
+  expiresAt  DateTime
+  usedAt     DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  user User @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+
+  @@index([tenantId, userId, expiresAt])
+  @@map("password_reset_tokens")
 }
 
 // ============================================
