@@ -5,7 +5,7 @@
 | المرحلة | الحالة | ملاحظة |
 |---|---|---|
 | 0 — البناء وCI | **مكتملة** | نجحت الفحوص المحلية، بما فيها بناءان متتاليان، ثم نجح سير GitHub Actions كاملًا على runner وصل إلى Prisma. |
-| 1 — التبعيات الأمنية | مؤجلة | تدقيق تبعيات الإنتاج نظيف؛ ما زالت هناك تنبيهات في تبعيات التطوير للفحص الشامل. |
+| 1 — التبعيات الأمنية | **مكتملة** | أصبح التدقيق الكامل وتدقيق الإنتاج بلا تنبيهات؛ أضيف Dependabot وتدقيق أسبوعي في GitHub Actions. |
 | 2 — قاعدة البيانات والمجال | مؤجلة | لم تبدأ. |
 | 3 — المصادقة | مؤجلة | لم تبدأ؛ تتطلب مراجعة بشرية قبل الدمج. |
 | 4 — عزل المستأجرين وRLS | مؤجلة | لم تبدأ؛ تتطلب مراجعة بشرية واختبارات تكامل على PostgreSQL. |
@@ -21,22 +21,28 @@
 - توسيع CI بالترتيب المطلوب: التثبيت، توليد Prisma، lint، typecheck، build، test، فحص `apps/api/dist/main.js`، ثم تدقيق تبعيات الإنتاج.
 - تحديث تبعيات الإنتاج والتجاوزات اللازمة لاجتياز `pnpm audit --prod`، ومطابقة نسخة pnpm في CI مع `packageManager` في `package.json` (`9.15.0`).
 
+## المرحلة 1 — التبعيات الأمنية
+
+- قبل التغيير: `pnpm audit --prod` أعاد `No known vulnerabilities found`. التدقيق الكامل `pnpm audit --json` كشف 4 تنبيهات على `fast-uri@3.1.8` في تبعيات أدوات التطوير (2 متوسطة و2 منخفضة، دون تنبيهات عالية أو حرجة). كانت التجاوزات الإنتاجية اللازمة لـ`deepmerge-ts` و`multer` و`qs` قد أُضيفت في المرحلة 0؛ لم يُظهر تدقيق الإنتاج حاجةً إلى ترقيات إنتاج إضافية.
+- أُضيف override إلى `fast-uri@3.1.9`، وهو الإصدار المرقّع الموصى به، وحُدّث `pnpm-lock.yaml`؛ تحقّق `pnpm list fast-uri --recursive --depth 20` من الإصدار الجديد في مسارات التبعية.
+- أُضيف `.github/dependabot.yml` لتحديث تبعيات npm/pnpm أسبوعيًا.
+- أُضيف `.github/workflows/security-audit.yml`: يدقق تبعيات الإنتاج كاملةً، ويفحص جميع التبعيات بعتبة high، ويعمل عند PR وpush إلى `main`، أسبوعيًا كل اثنين 06:00 UTC، ويمكن تشغيله يدويًا.
+- بعد التغيير: `pnpm audit --prod` أعاد `No known vulnerabilities found`؛ و`pnpm audit --json` أظهر أصفارًا في جميع درجات الخطورة؛ و`pnpm audit --audit-level=high` نجح دون تنبيهات عالية أو حرجة.
+
 ## التحقق المحلي
 
-- `pnpm install --frozen-lockfile` — نجح.
-- `pnpm lint` — نجح.
-- `pnpm typecheck` — نجح، ويشمل ملفات الاختبارات.
-- `pnpm build` مرتين مع إجبار إعادة البناء — نجح في المرتين؛ وُجد `apps/api/dist/main.js` و`packages/database/dist/index.js` بعد كل تشغيل.
+- `pnpm install --frozen-lockfile --ignore-scripts` — نجح والـlockfile متزامن.
+- `pnpm audit --prod` — نجح، دون ثغرات معروفة.
+- `pnpm audit --json` — نجح؛ صفر تنبيهات `info` أو `low` أو `moderate` أو `high` أو `critical`.
+- `pnpm audit --audit-level=high` — نجح.
+- `pnpm lint` و`pnpm typecheck` و`pnpm build` — نجحت.
 - `pnpm test` — نجح: 3 اختبارات API واختبار قاعدة البيانات (4 إجمالًا).
-- اختبار Vitest بمجلد فارغ — خرج برمز غير صفري كما هو مطلوب.
-- `test -s apps/api/dist/main.js` — نجح.
-- `pnpm audit --prod` — لم يجد ثغرات معروفة في تبعيات الإنتاج.
-- `git diff --check` — نجح.
+- `test -s apps/api/dist/main.js` و`git diff --check` — نجحا.
 
 ## تحقق GitHub Actions والقيود المتبقية
 
-- فشل التشغيل البعيد الأول عند إعداد pnpm بسبب تعريف نسختين مختلفتين (`9` في workflow و`9.15.0` في `package.json`). ثُبّتت النسخة الدقيقة في `.github/workflows/ci.yml`.
-- نجح تشغيل CI رقم `40539493259` على commit `df4fbaf` بالكامل: تثبيت التبعيات، توليد Prisma Client، lint، typecheck، build، الاختبارات، فحص مخرج API، و`pnpm audit --prod`.
-- ما زال `pnpm db:generate` المحلي غير متاح بسبب منع الاتصال بـ`binaries.prisma.sh` لتنزيل `schema-engine`؛ لكن التوليد نجح على GitHub runner، لذلك لم يعد هذا قيد قبول للمرحلة 0.
-- التدقيق الشامل `pnpm audit`، بخلاف تدقيق الإنتاج المطلوب في CI، أظهر 4 تنبيهات في تبعيات التطوير لـ`fast-uri` (2 متوسطة و2 منخفضة). تُراجع ضمن المرحلة 1.
-- لم يبدأ تنفيذ المراحل 1–7؛ المرحلة 0 وحدها أُغلقت، ولا يتضمن هذا التغيير بدء مرحلة لاحقة.
+- نجح سير CI رقم `40541464009` على commit `b6c3204`: التثبيت، توليد Prisma Client، lint، typecheck، build، الاختبارات، فحص مخرج API، وتدقيق الإنتاج.
+- نجح سير `Dependency security audit` رقم `40541463784` على commit نفسه، بما فيه تثبيت lockfile وتدقيق الإنتاج والتدقيق الكامل بعتبة high.
+- قيد الشبكة المحلي لـ`pnpm db:generate` إلى `binaries.prisma.sh` ما زال قائمًا؛ التوليد نجح على GitHub runner في CI.
+- إعدادا Dependabot والجدولة سيبدآن العمل على الفرع الافتراضي بعد دمج PR؛ تم التحقق من سير التدقيق عبر حدث PR، ولم يحِن موعد تشغيل cron الأسبوعي بعد.
+- التدقيق الكامل `pnpm audit` كان يحتوي على 4 تنبيهات تطوير قبل المرحلة 1؛ أصبحت النتيجة بعد الإصلاح صفرًا. لم يبدأ تنفيذ المراحل 2–7.
