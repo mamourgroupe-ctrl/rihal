@@ -1,11 +1,11 @@
 import { ForbiddenException, Injectable, OnModuleDestroy } from '@nestjs/common';
-import type { Prisma } from '@rihal/database';
+import type { Prisma, PrismaClient } from '@rihal/database';
 import { prisma } from '@rihal/database';
 import { TenantContext } from './tenant-context';
 
 @Injectable()
 export class PrismaService implements OnModuleDestroy {
-  readonly client = prisma;
+  readonly client: PrismaClient = prisma;
 
   constructor(private readonly tenantContext: TenantContext) {}
 
