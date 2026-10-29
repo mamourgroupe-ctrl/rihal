@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
-    "lint": "eslint src test prisma/seed.ts --ext .ts --max-warnings=0",
+    "lint": "eslint src test prisma/seed.ts prisma/provision-roles.ts --ext .ts --max-warnings=0",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.test.json",
     "test": "vitest run",
     "db:generate": "prisma generate",
@@ -21,6 +21,7 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
+    "db:provision-roles": "tsx prisma/provision-roles.ts",
     "db:reset": "prisma migrate reset"
   },
   "prisma": {

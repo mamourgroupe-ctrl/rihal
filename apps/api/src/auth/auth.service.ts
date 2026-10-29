@@ -55,7 +55,7 @@ export class AuthService {
       select: { id: true },
     });
     const user = tenant
-      ? await this.prisma.client.user.findFirst({
+      ? await this.prisma.withTenant(tenant.id, (tx) => tx.user.findFirst({
           where: {
             tenantId: tenant.id,
             email: input.email,
@@ -70,7 +70,7 @@ export class AuthService {
             role: true,
             passwordHash: true,
           },
-        })
+        }))
       : null;
 
     const hashToCheck = user?.passwordHash ?? (await this.getDummyPasswordHash());
@@ -82,7 +82,7 @@ export class AuthService {
     const now = new Date();
     const sessionExpiresAt = new Date(now.getTime() + REFRESH_TOKEN_TTL_MS);
     const refreshToken = this.createOpaqueToken();
-    const session = await this.prisma.client.$transaction(async (tx) => {
+    const session = await this.prisma.withTenant(user.tenantId, async (tx) => {
       const created = await tx.authSession.create({
         data: {
           tenantId: user.tenantId,
@@ -120,9 +120,19 @@ export class AuthService {
 
     const now = new Date();
     const nextRefreshToken = this.createOpaqueToken();
-    const result = await this.prisma.client.$transaction(async (tx) => {
+    const tokenHash = this.hashToken(rawToken);
+    const result = await this.prisma.withRefreshTokenLookup(tokenHash, async (tx) => {
+      const tokenIdentity = await tx.refreshToken.findUnique({
+        where: { tokenHash },
+        select: { tenantId: true },
+      });
+      if (!tokenIdentity) {
+        return { kind: 'invalid' as const };
+      }
+      await this.prisma.setLocalTenant(tx, tokenIdentity.tenantId);
+
       const stored = await tx.refreshToken.findUnique({
-        where: { tokenHash: this.hashToken(rawToken) },
+        where: { tokenHash },
         include: {
           session: {
             include: {
@@ -191,6 +201,7 @@ export class AuthService {
 
       await tx.refreshToken.create({
         data: {
+          tenantId: user.tenantId,
           sessionId: session.id,
           tokenHash: this.hashToken(nextRefreshToken),
           expiresAt: session.expiresAt,
@@ -224,20 +235,24 @@ export class AuthService {
     if (!rawToken || rawToken.length > 128) {
       return;
     }
-    const stored = await this.prisma.client.refreshToken.findUnique({
-      where: { tokenHash: this.hashToken(rawToken) },
-      select: { sessionId: true },
-    });
-    if (stored) {
-      await this.prisma.client.authSession.updateMany({
-        where: { id: stored.sessionId, revokedAt: null },
-        data: { revokedAt: new Date() },
+    const tokenHash = this.hashToken(rawToken);
+    await this.prisma.withRefreshTokenLookup(tokenHash, async (tx) => {
+      const stored = await tx.refreshToken.findUnique({
+        where: { tokenHash },
+        select: { tenantId: true, sessionId: true },
       });
-    }
+      if (stored) {
+        await this.prisma.setLocalTenant(tx, stored.tenantId);
+        await tx.authSession.updateMany({
+          where: { id: stored.sessionId, revokedAt: null },
+          data: { revokedAt: new Date() },
+        });
+      }
+    });
   }
 
   async isAccessSessionActive(user: AuthenticatedUser): Promise<boolean> {
-    const session = await this.prisma.client.authSession.findFirst({
+    const session = await this.prisma.withTenant(user.tenantId, (tx) => tx.authSession.findFirst({
       where: {
         id: user.sid,
         tenantId: user.tenantId,
@@ -255,7 +270,7 @@ export class AuthService {
           },
         },
       },
-    });
+    }));
 
     return Boolean(
       session &&
@@ -273,7 +288,7 @@ export class AuthService {
       select: { id: true },
     });
     const user = tenant
-      ? await this.prisma.client.user.findFirst({
+      ? await this.prisma.withTenant(tenant.id, (tx) => tx.user.findFirst({
           where: {
             tenantId: tenant.id,
             email: input.email,
@@ -281,7 +296,7 @@ export class AuthService {
             archivedAt: null,
           },
           select: { id: true, tenantId: true, email: true },
-        })
+        }))
       : null;
 
     await this.comparePassword('recovery-request-probe', await this.getDummyPasswordHash());
@@ -297,7 +312,7 @@ export class AuthService {
       recoveryUrl.hash = new URLSearchParams({ token: rawToken }).toString();
       const encryptedPayload = this.recoveryCrypto.encryptRecoveryUrl(recoveryUrl.toString());
 
-      const notificationId = await this.prisma.client.$transaction(async (tx) => {
+      const notificationId = await this.prisma.withTenant(user.tenantId, async (tx) => {
         await tx.passwordResetToken.updateMany({
           where: {
             tenantId: user.tenantId,
@@ -328,7 +343,7 @@ export class AuthService {
         return notification.id;
       });
 
-      void this.deliverRecoveryEmail(notificationId, user.email, recoveryUrl.toString());
+      void this.deliverRecoveryEmail(user.tenantId, notificationId, user.email, recoveryUrl.toString());
     }
 
     return { message: GENERIC_RECOVERY_MESSAGE };
@@ -336,16 +351,19 @@ export class AuthService {
 
   async resetPassword(input: PasswordResetInput): Promise<void> {
     const now = new Date();
-    const token = await this.prisma.client.passwordResetToken.findUnique({
-      where: { tokenHash: this.hashToken(input.token) },
-      select: { id: true, tenantId: true, userId: true, expiresAt: true, usedAt: true, revokedAt: true },
-    });
+    const tokenHash = this.hashToken(input.token);
+    const token = await this.prisma.withPasswordResetTokenLookup(tokenHash, (tx) =>
+      tx.passwordResetToken.findUnique({
+        where: { tokenHash },
+        select: { id: true, tenantId: true, userId: true, expiresAt: true, usedAt: true, revokedAt: true },
+      }),
+    );
     if (!token || token.usedAt || token.revokedAt || token.expiresAt <= now) {
       throw new BadRequestException('Invalid or expired recovery token');
     }
 
     const passwordHash = await hash(input.newPassword, BCRYPT_COST);
-    const changed = await this.prisma.client.$transaction(async (tx) => {
+    const changed = await this.prisma.withTenant(token.tenantId, async (tx) => {
       const consumed = await tx.passwordResetToken.updateMany({
         where: {
           id: token.id,
@@ -395,16 +413,17 @@ export class AuthService {
   }
 
   private async deliverRecoveryEmail(
+    tenantId: string,
     notificationId: string,
     email: string,
     recoveryUrl: string,
   ): Promise<void> {
     try {
       if (await this.recoveryMail.deliver(email, recoveryUrl)) {
-        await this.prisma.client.notification.updateMany({
+        await this.prisma.withTenant(tenantId, (tx) => tx.notification.updateMany({
           where: { id: notificationId, status: 'PENDING' },
           data: { status: 'SENT', sentAt: new Date() },
-        });
+        }));
       }
     } catch {
       // Keep the encrypted outbox record pending for recovery by a later worker.

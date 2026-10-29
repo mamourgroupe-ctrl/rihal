@@ -10,6 +10,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
+      # Admin connection is only used to provision the two isolated roles and
+      # as a fixture connection for tenant-independent test setup.
+      ADMIN_DATABASE_URL: postgresql://rihal:rihal@localhost:5432/rihal?schema=public
+      TEST_ADMIN_DATABASE_URL: postgresql://rihal:rihal@localhost:5432/rihal?schema=public
+      # The provisioning step replaces these values in GITHUB_ENV before any
+      # migration or test connects to PostgreSQL.
       DATABASE_URL: postgresql://rihal:rihal@localhost:5432/rihal?schema=public
       DIRECT_URL: postgresql://rihal:rihal@localhost:5432/rihal?schema=public
     services:
@@ -37,6 +43,8 @@ jobs:
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter @rihal/database db:generate
+      - name: Provision isolated PostgreSQL roles
+        run: pnpm --filter @rihal/database db:provision-roles
       - run: pnpm --filter @rihal/database exec prisma migrate reset --force --skip-seed
       - run: pnpm --filter @rihal/database db:seed
       - run: pnpm lint
