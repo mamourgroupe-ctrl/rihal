@@ -90,7 +90,6 @@ export class AuthService {
           expiresAt: sessionExpiresAt,
           refreshTokens: {
             create: {
-              tenantId: user.tenantId,
               tokenHash: this.hashToken(refreshToken),
               expiresAt: sessionExpiresAt,
             },
