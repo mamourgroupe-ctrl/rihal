@@ -1,6 +1,10 @@
 import { Gender, PrismaClient, Role, TenantStatus } from '@prisma/client';
 
-const prisma = new PrismaClient({ log: ['error'] });
+const seedConnectionUrl = process.env.SEED_DATABASE_URL ?? process.env.DIRECT_URL;
+const prisma = new PrismaClient({
+  ...(seedConnectionUrl ? { datasources: { db: { url: seedConnectionUrl } } } : {}),
+  log: ['error'],
+});
 const seedOnlyPasswordSentinel = 'NOT_A_REAL_PASSWORD_HASH';
 
 const seedAgencies = [
@@ -40,6 +44,7 @@ async function seed(): Promise<void> {
         create: { name: agency.name, slug: agency.slug },
         update: { name: agency.name, status: TenantStatus.ACTIVE, archivedAt: null },
       });
+      await tx.$queryRaw`SELECT set_config('app.current_tenant_id', ${tenant.id}, true)`;
 
       for (const user of agency.users) {
         await tx.user.upsert({

@@ -27,7 +27,7 @@ export class PilgrimsService {
       throw new DomainRuleError('INVALID_INPUT', 'Tenant, names, and passport number are required.');
     }
 
-    return this.prismaService.client.pilgrim.create({
+    return this.prismaService.withTenant(tenantId, (tx) => tx.pilgrim.create({
       data: {
         tenantId,
         fullNameAr: input.fullNameAr.trim(),
@@ -41,7 +41,7 @@ export class PilgrimsService {
         email: input.email?.trim().toLowerCase() || null,
         notes: input.notes?.trim() || null,
       },
-    });
+    }));
   }
 
   async transitionStatus(
@@ -49,7 +49,7 @@ export class PilgrimsService {
     pilgrimId: string,
     nextStatus: PilgrimStatus,
   ): Promise<Pilgrim> {
-    return this.prismaService.client.$transaction(async (tx) => {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
       const pilgrim = await tx.pilgrim.findFirst({
         where: { id: pilgrimId, tenantId, archivedAt: null },
       });
@@ -78,7 +78,7 @@ export class PilgrimsService {
   }
 
   async archive(tenantId: string, pilgrimId: string): Promise<void> {
-    await this.prismaService.client.$transaction(async (tx) => {
+    await this.prismaService.withTenant(tenantId, async (tx) => {
       const archivedAt = new Date();
       const result = await tx.pilgrim.updateMany({
         where: { id: pilgrimId, tenantId, archivedAt: null },

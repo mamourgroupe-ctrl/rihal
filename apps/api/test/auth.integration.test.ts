@@ -1,5 +1,5 @@
 import type { INestApplication } from '@nestjs/common';
-import type { PrismaClient } from '@rihal/database';
+import type { Prisma, PrismaClient } from '@rihal/database';
 import { hash } from 'bcryptjs';
 import { randomUUID } from 'node:crypto';
 import type { AddressInfo } from 'node:net';
@@ -7,11 +7,14 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const integrationDatabaseUrl = process.env.TEST_DATABASE_URL ??
   (process.env.CI === 'true' ? process.env.DATABASE_URL : undefined);
-const canRunIntegrationTests = Boolean(integrationDatabaseUrl);
+const integrationAdminDatabaseUrl = process.env.TEST_ADMIN_DATABASE_URL ??
+  (process.env.CI === 'true' ? process.env.ADMIN_DATABASE_URL : undefined);
+const canRunIntegrationTests = Boolean(integrationDatabaseUrl && integrationAdminDatabaseUrl);
 const initialPassword = 'Synthetic-Test-Password-42!';
 const resetPassword = 'Synthetic-Reset-Password-73!';
 const refreshCookieName = 'rihal_refresh';
 let prisma: PrismaClient | undefined;
+let adminPrisma: PrismaClient | undefined;
 let app: INestApplication | undefined;
 let baseUrl = '';
 let tenantId = '';
@@ -26,6 +29,23 @@ function database(): PrismaClient {
     throw new Error('The PostgreSQL authentication test client is not initialized.');
   }
   return prisma;
+}
+
+function fixtureDatabase(): PrismaClient {
+  if (!adminPrisma) {
+    throw new Error('The PostgreSQL authentication fixture client is not initialized.');
+  }
+  return adminPrisma;
+}
+
+async function withTenant<T>(
+  tenantId: string,
+  operation: (transaction: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return database().$transaction(async (transaction) => {
+    await transaction.$queryRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+    return operation(transaction);
+  });
 }
 
 function refreshCookie(response: Response): string {
@@ -69,7 +89,11 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL authentication flow', () =>
       import('../src/auth/recovery-crypto.service'),
     ]);
     prisma = databaseModule.prisma;
-    await prisma.$connect();
+    adminPrisma = new databaseModule.PrismaClient({
+      datasources: { db: { url: integrationAdminDatabaseUrl! } },
+      log: ['error'],
+    });
+    await Promise.all([prisma.$connect(), adminPrisma.$connect()]);
     app = await nestCore.NestFactory.create(appModule.AppModule, { logger: false });
     await app.listen(0, '127.0.0.1');
     const address = app.getHttpServer().address() as AddressInfo;
@@ -78,17 +102,17 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL authentication flow', () =>
 
     tenantSlug = `phase3-${randomUUID()}`;
     email = `auth-${randomUUID()}@seed.invalid`;
-    const tenant = await prisma.tenant.create({
+    const tenant = await fixtureDatabase().tenant.create({
       data: { name: 'Synthetic authentication tenant', slug: tenantSlug },
       select: { id: true },
     });
     tenantId = tenant.id;
-    const otherTenant = await prisma.tenant.create({
+    const otherTenant = await fixtureDatabase().tenant.create({
       data: { name: 'Synthetic foreign tenant', slug: `phase3-other-${randomUUID()}` },
       select: { id: true },
     });
     otherTenantId = otherTenant.id;
-    const user = await prisma.user.create({
+    const user = await withTenant(tenantId, async (tx) => tx.user.create({
       data: {
         tenantId,
         email,
@@ -97,14 +121,14 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL authentication flow', () =>
         role: 'VIEWER',
       },
       select: { id: true },
-    });
+    }));
     userId = user.id;
   }, 30_000);
 
   afterAll(async () => {
-    if (prisma && tenantId) {
+    if (adminPrisma && tenantId) {
       const archivedAt = new Date();
-      await prisma.$transaction(async (tx) => {
+      await fixtureDatabase().$transaction(async (tx) => {
         await tx.authSession.updateMany({
           where: { tenantId, revokedAt: null },
           data: { revokedAt: archivedAt },
@@ -126,7 +150,7 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL authentication flow', () =>
       });
     }
     await app?.close();
-    await prisma?.$disconnect();
+    await Promise.all([prisma?.$disconnect(), adminPrisma?.$disconnect()]);
   }, 30_000);
 
   it('returns 401 anonymously and reads tenant context only from the verified access token', async () => {
@@ -198,11 +222,11 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL authentication flow', () =>
     expect(recoveryResponse.status).toBe(200);
     const genericMessage = (await recoveryResponse.json()) as { message: string };
 
-    const latestNotification = await database().notification.findFirstOrThrow({
+    const latestNotification = await withTenant(tenantId, (tx) => tx.notification.findFirstOrThrow({
       where: { tenantId, userId, template: 'password-reset' },
       orderBy: { createdAt: 'desc' },
       select: { payload: true, status: true },
-    });
+    }));
     expect(latestNotification.status).toBe('PENDING');
     const resetUrl = new URL(recoveryCrypto.decryptRecoveryUrl(latestNotification.payload));
     const token = new URLSearchParams(resetUrl.hash.slice(1)).get('token');

@@ -22,7 +22,7 @@ export class GroupsService {
       throw new DomainRuleError('INVALID_INPUT', 'A tenant, group name, and positive integer capacity are required.');
     }
 
-    return this.prismaService.client.group.create({
+    return this.prismaService.withTenant(tenantId, (tx) => tx.group.create({
       data: {
         tenantId,
         name,
@@ -30,7 +30,7 @@ export class GroupsService {
         maxSize,
         scheduledDate: input.scheduledDate,
       },
-    });
+    }));
   }
 
   async addMember(
@@ -40,7 +40,7 @@ export class GroupsService {
     isLeader = false,
   ): Promise<GroupMember> {
     try {
-      return await this.prismaService.client.$transaction(async (tx) => {
+      return await this.prismaService.withTenant(tenantId, async (tx) => {
         const lockedGroups = await tx.$queryRaw<Array<{ id: string; maxSize: number; status: GroupStatus }>>`
           SELECT "id", "maxSize", "status"
           FROM "groups"
@@ -110,13 +110,15 @@ export class GroupsService {
   }
 
   async removeMember(tenantId: string, groupId: string, memberId: string): Promise<void> {
-    const result = await this.prismaService.client.groupMember.updateMany({
-      where: { id: memberId, tenantId, groupId, archivedAt: null },
-      data: { archivedAt: new Date() },
+    await this.prismaService.withTenant(tenantId, async (tx) => {
+      const result = await tx.groupMember.updateMany({
+        where: { id: memberId, tenantId, groupId, archivedAt: null },
+        data: { archivedAt: new Date() },
+      });
+      if (result.count !== 1) {
+        throw new DomainRuleError('NOT_FOUND', 'Active group member not found.');
+      }
     });
-    if (result.count !== 1) {
-      throw new DomainRuleError('NOT_FOUND', 'Active group member not found.');
-    }
   }
 
   async transitionStatus(
@@ -124,7 +126,7 @@ export class GroupsService {
     groupId: string,
     nextStatus: GroupStatus,
   ): Promise<Group> {
-    return this.prismaService.client.$transaction(async (tx) => {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
       const lockedGroups = await tx.$queryRaw<Array<{ id: string; status: GroupStatus }>>`
         SELECT "id", "status"
         FROM "groups"
@@ -167,7 +169,7 @@ export class GroupsService {
   }
 
   async archive(tenantId: string, groupId: string): Promise<void> {
-    await this.prismaService.client.$transaction(async (tx) => {
+    await this.prismaService.withTenant(tenantId, async (tx) => {
       const archivedAt = new Date();
       const group = await tx.group.updateMany({
         where: { id: groupId, tenantId, archivedAt: null },

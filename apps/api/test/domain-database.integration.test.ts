@@ -4,6 +4,7 @@ import type {
   InvoiceStatus,
   NotificationChannel,
   PilgrimStatus,
+  Prisma,
   PrismaClient,
 } from '@rihal/database';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -15,8 +16,11 @@ import type { PrismaService } from '../src/database/prisma.service';
 
 const integrationDatabaseUrl = process.env.TEST_DATABASE_URL ??
   (process.env.CI === 'true' ? process.env.DATABASE_URL : undefined);
-const canRunIntegrationTests = Boolean(integrationDatabaseUrl);
+const integrationAdminDatabaseUrl = process.env.TEST_ADMIN_DATABASE_URL ??
+  (process.env.CI === 'true' ? process.env.ADMIN_DATABASE_URL : undefined);
+const canRunIntegrationTests = Boolean(integrationDatabaseUrl && integrationAdminDatabaseUrl);
 let prisma: PrismaClient | undefined;
+let adminPrisma: PrismaClient | undefined;
 let groupsService: GroupsService;
 let documentsService: DocumentsService;
 let invoicesService: InvoicesService;
@@ -30,9 +34,26 @@ function db(): PrismaClient {
   return prisma;
 }
 
+function adminDb(): PrismaClient {
+  if (!adminPrisma) {
+    throw new Error('The PostgreSQL fixture client is not initialized.');
+  }
+  return adminPrisma;
+}
+
+async function withTenant<T>(
+  tenantId: string,
+  operation: (transaction: Prisma.TransactionClient) => Promise<T>,
+): Promise<T> {
+  return db().$transaction(async (transaction) => {
+    await transaction.$queryRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
+    return operation(transaction);
+  });
+}
+
 async function createTenant(label: string): Promise<{ id: string }> {
-  const slug = `phase2-${label}-${randomUUID()}`;
-  const tenant = await db().tenant.create({
+  const slug = `phase4-${label}-${randomUUID()}`;
+  const tenant = await adminDb().tenant.create({
     data: { name: `Test tenant ${label}`, slug },
     select: { id: true },
   });
@@ -41,7 +62,7 @@ async function createTenant(label: string): Promise<{ id: string }> {
 }
 
 async function createPilgrim(tenantId: string, label: string): Promise<{ id: string }> {
-  return db().pilgrim.create({
+  return withTenant(tenantId, (tx) => tx.pilgrim.create({
     data: {
       tenantId,
       fullNameAr: `اسم تجريبي ${label}`,
@@ -51,13 +72,13 @@ async function createPilgrim(tenantId: string, label: string): Promise<{ id: str
       nationality: 'DZ',
     },
     select: { id: true },
-  });
+  }));
 }
 
 async function archiveTestRows(): Promise<void> {
   for (const tenantId of testTenantIds.splice(0)) {
     const archivedAt = new Date();
-    await db().$transaction(async (tx) => {
+    await adminDb().$transaction(async (tx) => {
       await tx.groupMember.updateMany({ where: { tenantId, archivedAt: null }, data: { archivedAt } });
       await tx.invoiceItem.updateMany({ where: { tenantId, archivedAt: null }, data: { archivedAt } });
       await tx.document.updateMany({ where: { tenantId, archivedAt: null }, data: { archivedAt } });
@@ -84,8 +105,15 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
       datasources: { db: { url: integrationDatabaseUrl! } },
       log: ['error'],
     });
-    await prisma.$connect();
-    const prismaService = { client: prisma } as unknown as PrismaService;
+    adminPrisma = new database.PrismaClient({
+      datasources: { db: { url: integrationAdminDatabaseUrl! } },
+      log: ['error'],
+    });
+    await Promise.all([prisma.$connect(), adminPrisma.$connect()]);
+    const prismaService = {
+      client: prisma,
+      withTenant,
+    } as unknown as PrismaService;
     groupsService = new groups.GroupsService(prismaService);
     documentsService = new documents.DocumentsService(prismaService);
     invoicesService = new invoices.InvoicesService(prismaService);
@@ -97,7 +125,7 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
   });
 
   afterAll(async () => {
-    await prisma?.$disconnect();
+    await Promise.all([prisma?.$disconnect(), adminPrisma?.$disconnect()]);
   });
 
   it('rejects cross-tenant group-member, document, and invoice links', async () => {
@@ -121,13 +149,13 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
     ).rejects.toMatchObject({ code: 'NOT_FOUND' });
 
     await expect(
-      db().groupMember.create({
+      withTenant(tenantA.id, (tx) => tx.groupMember.create({
         data: { tenantId: tenantA.id, groupId: group.id, pilgrimId: pilgrimB.id },
-      }),
+      })),
     ).rejects.toMatchObject({ code: 'P2003' });
 
     await expect(
-      db().document.create({
+      withTenant(tenantA.id, (tx) => tx.document.create({
         data: {
           tenantId: tenantA.id,
           pilgrimId: pilgrimB.id,
@@ -137,11 +165,11 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
           fileSize: 100,
           mimeType: 'image/jpeg',
         },
-      }),
+      })),
     ).rejects.toMatchObject({ code: 'P2003' });
 
     await expect(
-      db().invoice.create({
+      withTenant(tenantA.id, (tx) => tx.invoice.create({
         data: {
           tenantId: tenantA.id,
           invoiceNumber: `CROSS-${randomUUID()}`,
@@ -149,14 +177,14 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
           pilgrimId: pilgrimB.id,
           amount: '1.00',
         },
-      }),
+      })),
     ).rejects.toMatchObject({ code: 'P2003' });
   });
 
   it('enforces tenant-safe optional notification relations to users and pilgrims', async () => {
     const tenantA = await createTenant('notification-owner');
     const tenantB = await createTenant('notification-target');
-    const userB = await db().user.create({
+    const userB = await withTenant(tenantB.id, (tx) => tx.user.create({
       data: {
         tenantId: tenantB.id,
         email: `test-${randomUUID()}@seed.invalid`,
@@ -164,11 +192,11 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
         name: 'Synthetic notification recipient',
       },
       select: { id: true },
-    });
+    }));
     const pilgrimB = await createPilgrim(tenantB.id, 'notification-target');
 
     await expect(
-      db().notification.create({
+      withTenant(tenantA.id, (tx) => tx.notification.create({
         data: {
           tenantId: tenantA.id,
           userId: userB.id,
@@ -176,11 +204,11 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
           template: 'synthetic-test',
           payload: {},
         },
-      }),
+      })),
     ).rejects.toMatchObject({ code: 'P2003' });
 
     await expect(
-      db().notification.create({
+      withTenant(tenantA.id, (tx) => tx.notification.create({
         data: {
           tenantId: tenantA.id,
           pilgrimId: pilgrimB.id,
@@ -188,7 +216,7 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
           template: 'synthetic-test',
           payload: {},
         },
-      }),
+      })),
     ).rejects.toMatchObject({ code: 'P2003' });
   });
 
@@ -222,21 +250,21 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
       fileSize: 100,
       mimeType: 'image/jpeg',
     });
-    const transitionedPilgrim = await db().pilgrim.findFirstOrThrow({
+    const transitionedPilgrim = await withTenant(tenant.id, (tx) => tx.pilgrim.findFirstOrThrow({
       where: { id: pilgrim.id, tenantId: tenant.id },
-    });
+    }));
     expect(transitionedPilgrim.status).toBe('DOCUMENTS_UPLOADED');
     expect((await documentsService.verify(tenant.id, document.id)).verified).toBe(true);
 
     await documentsService.archive(tenant.id, document.id);
-    const archivedDocument = await db().document.findFirstOrThrow({
+    const archivedDocument = await withTenant(tenant.id, (tx) => tx.document.findFirstOrThrow({
       where: { id: document.id, tenantId: tenant.id },
-    });
+    }));
     expect(archivedDocument.archivedAt).toBeInstanceOf(Date);
     await pilgrimsService.archive(tenant.id, pilgrim.id);
-    const archivedPilgrim = await db().pilgrim.findFirstOrThrow({
+    const archivedPilgrim = await withTenant(tenant.id, (tx) => tx.pilgrim.findFirstOrThrow({
       where: { id: pilgrim.id, tenantId: tenant.id },
-    });
+    }));
     expect(archivedPilgrim.archivedAt).toBeInstanceOf(Date);
   });
 
@@ -289,9 +317,9 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
     expect(paid.paidAt).toEqual(paidAt);
 
     await invoicesService.archive(tenant.id, invoice.id);
-    const item = await db().invoiceItem.findFirstOrThrow({
+    const item = await withTenant(tenant.id, (tx) => tx.invoiceItem.findFirstOrThrow({
       where: { tenantId: tenant.id, invoiceId: invoice.id },
-    });
+    }));
     expect(item.archivedAt).toBeInstanceOf(Date);
   });
 
@@ -307,9 +335,9 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
     ).rejects.toMatchObject({ code: 'LEADER_ALREADY_ASSIGNED' });
 
     await expect(
-      db().groupMember.create({
+      withTenant(tenant.id, (tx) => tx.groupMember.create({
         data: { tenantId: tenant.id, groupId: group.id, pilgrimId: second.id, isLeader: true },
-      }),
+      })),
     ).rejects.toMatchObject({ code: 'P2002' });
   });
 
@@ -329,9 +357,9 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
     ).rejects.toMatchObject({ code: 'GROUP_FULL' });
 
     await expect(
-      db().groupMember.create({
+      withTenant(tenant.id, (tx) => tx.groupMember.create({
         data: { tenantId: tenant.id, groupId: group.id, pilgrimId: pilgrims[2].id },
-      }),
+      })),
     ).rejects.toBeDefined();
   });
 });

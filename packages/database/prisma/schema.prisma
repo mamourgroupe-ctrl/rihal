@@ -96,6 +96,7 @@ model AuthSession {
   user          User           @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
   refreshTokens RefreshToken[]
 
+  @@unique([tenantId, id])
   @@index([tenantId, userId, revokedAt])
   @@index([expiresAt])
   @@map("auth_sessions")
@@ -103,15 +104,16 @@ model AuthSession {
 
 model RefreshToken {
   id         String   @id @default(cuid())
+  tenantId   String
   sessionId  String
   tokenHash  String   @unique
   expiresAt  DateTime
   usedAt     DateTime?
   createdAt  DateTime @default(now())
 
-  session AuthSession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  session AuthSession @relation(fields: [tenantId, sessionId], references: [tenantId, id], onDelete: Restrict)
 
-  @@index([sessionId, expiresAt])
+  @@index([tenantId, sessionId, expiresAt])
   @@map("refresh_tokens")
 }
 

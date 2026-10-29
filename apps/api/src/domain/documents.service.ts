@@ -32,7 +32,7 @@ export class DocumentsService {
       throw new DomainRuleError('INVALID_INPUT', 'A private storage key and valid document metadata are required.');
     }
 
-    return this.prismaService.client.$transaction(async (tx) => {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
       const pilgrim = await tx.pilgrim.findFirst({
         where: { id: input.pilgrimId, tenantId, archivedAt: null },
         select: { id: true, status: true },
@@ -70,7 +70,7 @@ export class DocumentsService {
   }
 
   async verify(tenantId: string, documentId: string): Promise<Document> {
-    return this.prismaService.client.$transaction(async (tx) => {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
       const result = await tx.document.updateMany({
         where: { id: documentId, tenantId, archivedAt: null },
         data: { verified: true },
@@ -85,12 +85,14 @@ export class DocumentsService {
   }
 
   async archive(tenantId: string, documentId: string): Promise<void> {
-    const result = await this.prismaService.client.document.updateMany({
-      where: { id: documentId, tenantId, archivedAt: null },
-      data: { archivedAt: new Date() },
+    await this.prismaService.withTenant(tenantId, async (tx) => {
+      const result = await tx.document.updateMany({
+        where: { id: documentId, tenantId, archivedAt: null },
+        data: { archivedAt: new Date() },
+      });
+      if (result.count !== 1) {
+        throw new DomainRuleError('NOT_FOUND', 'Document not found.');
+      }
     });
-    if (result.count !== 1) {
-      throw new DomainRuleError('NOT_FOUND', 'Document not found.');
-    }
   }
 }
