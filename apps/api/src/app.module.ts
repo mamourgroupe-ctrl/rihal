@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { join } from 'node:path';
 import { z } from 'zod';
 import { AuthModule } from './auth/auth.module';
+import { AgenciesModule } from './agencies/agencies.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
@@ -61,6 +62,7 @@ const envSchema = z.object({
     }),
     DatabaseModule,
     DomainModule,
+    AgenciesModule,
     AuthModule,
   ],
   controllers: [AppController],
