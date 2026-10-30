@@ -95,6 +95,7 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL authentication flow', () =>
     });
     await Promise.all([prisma.$connect(), adminPrisma.$connect()]);
     app = await nestCore.NestFactory.create(appModule.AppModule, { logger: false });
+    app.setGlobalPrefix('api');
     await app.listen(0, '127.0.0.1');
     const address = app.getHttpServer().address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}/api`;

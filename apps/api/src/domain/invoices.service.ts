@@ -55,7 +55,7 @@ export class InvoicesService {
     }
 
     try {
-      return await this.prismaService.withTenant(tenantId, async (tx) => {
+      return await this.prismaService.withRequestTenant(tenantId, async (tx) => {
         let customerName = input.customerName?.trim() || null;
         if (pilgrimId) {
           const pilgrim = await tx.pilgrim.findFirst({
@@ -120,7 +120,7 @@ export class InvoicesService {
     nextStatus: InvoiceStatus,
     now = new Date(),
   ): Promise<Invoice> {
-    return this.prismaService.withTenant(tenantId, async (tx) => {
+    return this.prismaService.withRequestTenant(tenantId, async (tx) => {
       const invoice = await tx.invoice.findFirst({
         where: { id: invoiceId, tenantId, archivedAt: null },
       });
@@ -155,7 +155,7 @@ export class InvoicesService {
   }
 
   async archive(tenantId: string, invoiceId: string): Promise<void> {
-    await this.prismaService.withTenant(tenantId, async (tx) => {
+    await this.prismaService.withRequestTenant(tenantId, async (tx) => {
       const archivedAt = new Date();
       const invoice = await tx.invoice.updateMany({
         where: { id: invoiceId, tenantId, archivedAt: null },

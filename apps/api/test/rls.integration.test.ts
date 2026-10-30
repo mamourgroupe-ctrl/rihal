@@ -43,6 +43,10 @@ let appPrisma: PrismaClient | undefined;
 let fixturePrisma: PrismaClient | undefined;
 let tenantAId = '';
 let tenantBId = '';
+let subscriptionPlanId = '';
+let permissionCode = '';
+let foreignUserId = '';
+let foreignRoleId = '';
 let tableCases: TenantTableCase[] = [];
 
 function appDb(): PrismaClient {
@@ -205,6 +209,66 @@ async function createFixtures(): Promise<void> {
   const [own, foreign] = await Promise.all([
     createTenantFixtures(tenantAId, 'own'),
     createTenantFixtures(tenantBId, 'foreign'),
+  ]);
+
+  permissionCode = `rls.test.${randomUUID()}`;
+  const plan = await fixtureDb().subscriptionPlan.create({
+    data: {
+      code: `rls-test-${randomUUID()}`,
+      name: 'Synthetic RLS plan',
+      billingInterval: 'MONTHLY',
+      price: '1.00',
+    },
+    select: { id: true },
+  });
+  subscriptionPlanId = plan.id;
+  await fixtureDb().permission.create({
+    data: { code: permissionCode, name: 'Synthetic RLS permission' },
+  });
+
+  const [roleA, roleB] = await Promise.all([
+    fixtureDb().tenantRole.create({
+      data: { tenantId: tenantAId, code: 'RLS_TEST', name: 'Synthetic RLS role' },
+      select: { id: true },
+    }),
+    fixtureDb().tenantRole.create({
+      data: { tenantId: tenantBId, code: 'RLS_TEST', name: 'Synthetic RLS role' },
+      select: { id: true },
+    }),
+  ]);
+  foreignUserId = foreign.userId;
+  foreignRoleId = roleB.id;
+  await Promise.all([
+    fixtureDb().tenantRolePermission.create({
+      data: { tenantId: tenantAId, roleId: roleA.id, permissionCode },
+    }),
+    fixtureDb().tenantRolePermission.create({
+      data: { tenantId: tenantBId, roleId: roleB.id, permissionCode },
+    }),
+    fixtureDb().userRole.create({
+      data: { tenantId: tenantAId, userId: own.userId, roleId: roleA.id },
+    }),
+    fixtureDb().userRole.create({
+      data: { tenantId: tenantBId, userId: foreign.userId, roleId: roleB.id },
+    }),
+    fixtureDb().agencySubscription.create({
+      data: {
+        tenantId: tenantAId,
+        subscriptionPlanId,
+        currentPeriodStart: new Date('2035-01-01T00:00:00.000Z'),
+        currentPeriodEnd: new Date('2035-02-01T00:00:00.000Z'),
+        price: '1.00',
+      },
+    }),
+    fixtureDb().agencySubscription.create({
+      data: {
+        tenantId: tenantBId,
+        subscriptionPlanId,
+        currentPeriodStart: new Date('2035-01-01T00:00:00.000Z'),
+        currentPeriodEnd: new Date('2035-02-01T00:00:00.000Z'),
+        price: '1.00',
+      },
+    }),
   ]);
 
   const createForeignUser = (tx: Prisma.TransactionClient) => tx.user.create({
@@ -406,6 +470,10 @@ async function cleanFixtures(): Promise<void> {
       await tx.refreshToken.deleteMany({ where: { tenantId } });
       await tx.passwordResetToken.deleteMany({ where: { tenantId } });
       await tx.authSession.deleteMany({ where: { tenantId } });
+      await tx.userRole.deleteMany({ where: { tenantId } });
+      await tx.tenantRolePermission.deleteMany({ where: { tenantId } });
+      await tx.agencySubscription.deleteMany({ where: { tenantId } });
+      await tx.tenantRole.deleteMany({ where: { tenantId } });
       await tx.invoiceItem.deleteMany({ where: { tenantId } });
       await tx.document.deleteMany({ where: { tenantId } });
       await tx.notification.deleteMany({ where: { tenantId } });
@@ -416,6 +484,12 @@ async function cleanFixtures(): Promise<void> {
       await tx.user.deleteMany({ where: { tenantId } });
       await tx.tenant.deleteMany({ where: { id: tenantId } });
     });
+  }
+  if (subscriptionPlanId) {
+    await fixtureDb().subscriptionPlan.delete({ where: { id: subscriptionPlanId } });
+  }
+  if (permissionCode) {
+    await fixtureDb().permission.delete({ where: { code: permissionCode } });
   }
 }
 
@@ -478,6 +552,15 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL row-level tenant isolation'
       return rows.flat();
     });
     expect(visibleWithoutContext).toEqual([]);
+    const newTenantTablesWithoutContext = await appDb().$transaction((tx) =>
+      Promise.all([
+        tx.agencySubscription.findMany(),
+        tx.tenantRole.findMany(),
+        tx.tenantRolePermission.findMany(),
+        tx.userRole.findMany(),
+      ]),
+    );
+    expect(newTenantTablesWithoutContext).toEqual([[], [], [], []]);
 
     await expect(
       appDb().$transaction((tx) => tx.group.create({
@@ -492,6 +575,79 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL row-level tenant isolation'
     expect(afterScopedTransaction).toEqual([]);
   });
 
+  it('isolates subscriptions and tenant-scoped RBAC while exposing global catalogs read-only', async () => {
+    const scopedRows = await withTenant(tenantAId, async (tx) => {
+      const [subscriptions, roles, rolePermissions, userRoles] = await Promise.all([
+        tx.agencySubscription.findMany({ select: { tenantId: true } }),
+        tx.tenantRole.findMany({ select: { tenantId: true } }),
+        tx.tenantRolePermission.findMany({ select: { tenantId: true } }),
+        tx.userRole.findMany({ select: { tenantId: true } }),
+      ]);
+      return { subscriptions, roles, rolePermissions, userRoles };
+    });
+
+    for (const rows of Object.values(scopedRows)) {
+      expect(rows.length).toBe(1);
+      expect(rows[0]?.tenantId).toBe(tenantAId);
+    }
+
+    const globalCatalog = await appDb().$transaction(async (tx) => {
+      const [plan, permission] = await Promise.all([
+        tx.subscriptionPlan.findUnique({ where: { id: subscriptionPlanId } }),
+        tx.permission.findUnique({ where: { code: permissionCode } }),
+      ]);
+      return { plan, permission };
+    });
+    expect(globalCatalog.plan?.id).toBe(subscriptionPlanId);
+    expect(globalCatalog.permission?.code).toBe(permissionCode);
+    await expect(
+      appDb().subscriptionPlan.update({
+        where: { id: subscriptionPlanId },
+        data: { name: 'Runtime write must fail' },
+      }),
+    ).rejects.toBeDefined();
+    await expect(
+      appDb().permission.create({
+        data: { code: `runtime-${randomUUID()}`, name: 'Runtime write must fail' },
+      }),
+    ).rejects.toBeDefined();
+
+    await expect(
+      withTenant(tenantAId, (tx) => tx.agencySubscription.create({
+        data: {
+          tenantId: tenantBId,
+          subscriptionPlanId,
+          currentPeriodStart: new Date('2035-01-01T00:00:00.000Z'),
+          currentPeriodEnd: new Date('2035-02-01T00:00:00.000Z'),
+          price: '1.00',
+        },
+      })),
+    ).rejects.toBeDefined();
+    await expect(
+      withTenant(tenantAId, (tx) => tx.tenantRole.create({
+        data: { tenantId: tenantBId, code: 'CROSS_TENANT', name: 'Denied role' },
+      })),
+    ).rejects.toBeDefined();
+    await expect(
+      withTenant(tenantAId, (tx) => tx.tenantRolePermission.create({
+        data: {
+          tenantId: tenantBId,
+          roleId: foreignRoleId,
+          permissionCode,
+        },
+      })),
+    ).rejects.toBeDefined();
+    await expect(
+      withTenant(tenantAId, (tx) => tx.userRole.create({
+        data: {
+          tenantId: tenantBId,
+          userId: foreignUserId,
+          roleId: foreignRoleId,
+        },
+      })),
+    ).rejects.toBeDefined();
+  });
+
   it('uses a non-owner, non-superuser application role and forces RLS on all scoped tables', async () => {
     const [runtimeRole, relationMetadata] = await Promise.all([
       appDb().$queryRaw<Array<{
@@ -502,6 +658,10 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL row-level tenant isolation'
         canCreateRole: boolean;
         isMigrationMember: boolean;
         canDeleteTenantRows: boolean;
+        canReadPlans: boolean;
+        canWritePlans: boolean;
+        canReadPermissions: boolean;
+        canWritePermissions: boolean;
       }>>`
         SELECT current_user AS "roleName",
                role.rolsuper AS "isSuperuser",
@@ -509,7 +669,15 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL row-level tenant isolation'
                role.rolcreatedb AS "canCreateDb",
                role.rolcreaterole AS "canCreateRole",
                pg_has_role(current_user, 'rihal_migrator', 'MEMBER') AS "isMigrationMember",
-               has_table_privilege(current_user, 'users', 'DELETE') AS "canDeleteTenantRows"
+               has_table_privilege(current_user, 'users', 'DELETE') AS "canDeleteTenantRows",
+               has_table_privilege(current_user, 'subscription_plans', 'SELECT') AS "canReadPlans",
+               (has_table_privilege(current_user, 'subscription_plans', 'INSERT')
+                OR has_table_privilege(current_user, 'subscription_plans', 'UPDATE')
+                OR has_table_privilege(current_user, 'subscription_plans', 'DELETE')) AS "canWritePlans",
+               has_table_privilege(current_user, 'permissions', 'SELECT') AS "canReadPermissions",
+               (has_table_privilege(current_user, 'permissions', 'INSERT')
+                OR has_table_privilege(current_user, 'permissions', 'UPDATE')
+                OR has_table_privilege(current_user, 'permissions', 'DELETE')) AS "canWritePermissions"
         FROM pg_roles AS role
         WHERE role.rolname = current_user
       `,
@@ -529,7 +697,8 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL row-level tenant isolation'
           AND relation.relname IN (
             'users', 'pilgrims', 'groups', 'group_members', 'documents', 'invoices',
             'invoice_items', 'notifications', 'auth_sessions', 'refresh_tokens',
-            'password_reset_tokens'
+            'password_reset_tokens', 'agency_subscriptions', 'tenant_roles',
+            'tenant_role_permissions', 'user_roles'
           )
         ORDER BY relation.relname
       `,
@@ -543,8 +712,12 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL row-level tenant isolation'
       canCreateRole: false,
       isMigrationMember: false,
       canDeleteTenantRows: false,
+      canReadPlans: true,
+      canWritePlans: false,
+      canReadPermissions: true,
+      canWritePermissions: false,
     }]);
-    expect(relationMetadata).toHaveLength(tenantTables.length);
+    expect(relationMetadata).toHaveLength(tenantTables.length + 4);
     for (const relation of relationMetadata) {
       expect(relation.ownerName).toBe('rihal_migrator');
       expect(relation.rowSecurity).toBe(true);

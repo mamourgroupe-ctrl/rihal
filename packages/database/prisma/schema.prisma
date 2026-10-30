@@ -16,20 +16,22 @@ datasource db {
 // ============================================
 
 model Tenant {
-  id            String       @id @default(cuid())
-  name          String
-  slug          String       @unique
-  plan          Plan         @default(FREE)
-  status        TenantStatus @default(ACTIVE)
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  archivedAt    DateTime?
+  id         String       @id @default(cuid())
+  name       String
+  slug       String       @unique
+  plan       Plan         @default(FREE)
+  status     TenantStatus @default(ACTIVE)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  archivedAt DateTime?
 
   users         User[]
   pilgrims      Pilgrim[]
   groups        Group[]
   invoices      Invoice[]
   notifications Notification[]
+  subscriptions AgencySubscription[]
+  roles         TenantRole[]
 
   @@index([archivedAt])
   @@map("tenants")
@@ -40,6 +42,19 @@ enum Plan {
   BASIC
   PRO
   ENTERPRISE
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  EXPIRED
 }
 
 enum TenantStatus {
@@ -70,6 +85,7 @@ model User {
   notifications       Notification[]       @relation("NotificationUser")
   authSessions        AuthSession[]
   passwordResetTokens PasswordResetToken[]
+  roleAssignments     UserRole[]
 
   @@unique([tenantId, email])
   @@unique([tenantId, id])
@@ -85,10 +101,10 @@ enum Role {
 }
 
 model AuthSession {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   tenantId   String
   userId     String
-  createdAt  DateTime @default(now())
+  createdAt  DateTime  @default(now())
   expiresAt  DateTime
   lastUsedAt DateTime?
   revokedAt  DateTime?
@@ -103,13 +119,13 @@ model AuthSession {
 }
 
 model RefreshToken {
-  id         String   @id @default(cuid())
-  tenantId   String
-  sessionId  String
-  tokenHash  String   @unique
-  expiresAt  DateTime
-  usedAt     DateTime?
-  createdAt  DateTime @default(now())
+  id        String    @id @default(cuid())
+  tenantId  String
+  sessionId String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
 
   session AuthSession @relation(fields: [tenantId, sessionId], references: [tenantId, id], onDelete: Restrict)
 
@@ -118,14 +134,14 @@ model RefreshToken {
 }
 
 model PasswordResetToken {
-  id         String   @id @default(cuid())
-  tenantId   String
-  userId     String
-  tokenHash  String   @unique
-  expiresAt  DateTime
-  usedAt     DateTime?
-  revokedAt  DateTime?
-  createdAt  DateTime @default(now())
+  id        String    @id @default(cuid())
+  tenantId  String
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
 
   user User @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
 
@@ -166,6 +182,108 @@ model Pilgrim {
   @@index([tenantId, archivedAt])
   @@index([tenantId, status])
   @@map("pilgrims")
+}
+
+model SubscriptionPlan {
+  id              String          @id @default(cuid())
+  code            String          @unique
+  name            String
+  description     String?
+  billingInterval BillingInterval
+  price           Decimal         @db.Decimal(10, 2)
+  currency        String          @default("SAR")
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  subscriptions AgencySubscription[]
+
+  @@map("subscription_plans")
+}
+
+model AgencySubscription {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  subscriptionPlanId String
+  status             SubscriptionStatus @default(TRIALING)
+  startsAt           DateTime           @default(now())
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  trialEndsAt        DateTime?
+  cancelAtPeriodEnd  Boolean            @default(false)
+  cancelledAt        DateTime?
+  price              Decimal            @db.Decimal(10, 2)
+  currency           String             @default("SAR")
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  tenant Tenant           @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  plan   SubscriptionPlan @relation(fields: [subscriptionPlanId], references: [id], onDelete: Restrict)
+
+  @@unique([tenantId, id])
+  @@index([tenantId, status])
+  @@index([tenantId, currentPeriodEnd])
+  @@map("agency_subscriptions")
+}
+
+model Permission {
+  code        String   @id
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  roleAssignments TenantRolePermission[]
+
+  @@map("permissions")
+}
+
+model TenantRole {
+  id          String    @id @default(cuid())
+  tenantId    String
+  code        String
+  name        String
+  description String?
+  isSystem    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  archivedAt  DateTime?
+
+  tenant      Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Restrict)
+  assignments UserRole[]
+  permissions TenantRolePermission[]
+
+  @@unique([tenantId, id])
+  @@unique([tenantId, code])
+  @@index([tenantId, archivedAt])
+  @@map("tenant_roles")
+}
+
+model TenantRolePermission {
+  tenantId       String
+  roleId         String
+  permissionCode String
+  createdAt      DateTime @default(now())
+
+  role       TenantRole @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict)
+  permission Permission @relation(fields: [permissionCode], references: [code], onDelete: Restrict)
+
+  @@id([tenantId, roleId, permissionCode])
+  @@index([tenantId, permissionCode])
+  @@map("tenant_role_permissions")
+}
+
+model UserRole {
+  tenantId  String
+  userId    String
+  roleId    String
+  createdAt DateTime @default(now())
+
+  user User       @relation(fields: [tenantId, userId], references: [tenantId, id], onDelete: Restrict)
+  role TenantRole @relation(fields: [tenantId, roleId], references: [tenantId, id], onDelete: Restrict)
+
+  @@id([tenantId, userId, roleId])
+  @@index([tenantId, roleId])
+  @@map("user_roles")
 }
 
 enum Gender {
@@ -309,15 +427,15 @@ enum InvoiceStatus {
 }
 
 model InvoiceItem {
-  id         String   @id @default(cuid())
-  tenantId   String
-  invoiceId  String
+  id          String    @id @default(cuid())
+  tenantId    String
+  invoiceId   String
   description String
-  quantity   Int
-  unitPrice  Decimal  @db.Decimal(10, 2)
-  lineTotal  Decimal  @db.Decimal(10, 2)
-  createdAt  DateTime @default(now())
-  archivedAt DateTime?
+  quantity    Int
+  unitPrice   Decimal   @db.Decimal(10, 2)
+  lineTotal   Decimal   @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+  archivedAt  DateTime?
 
   invoice Invoice @relation(fields: [tenantId, invoiceId], references: [tenantId, id], onDelete: Restrict)
 
@@ -330,17 +448,17 @@ model InvoiceItem {
 // ============================================
 
 model Notification {
-  id         String               @id @default(cuid())
+  id         String              @id @default(cuid())
   tenantId   String
   userId     String?
   pilgrimId  String?
   channel    NotificationChannel
   template   String
   payload    Json
-  status     NotificationStatus   @default(PENDING)
+  status     NotificationStatus  @default(PENDING)
   sentAt     DateTime?
   error      String?
-  createdAt  DateTime             @default(now())
+  createdAt  DateTime            @default(now())
   archivedAt DateTime?
 
   tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Restrict)
