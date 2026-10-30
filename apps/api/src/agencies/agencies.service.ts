@@ -23,6 +23,20 @@ export class AgenciesService {
     );
   }
 
+  async getCurrentSubscription(tenantId: string): Promise<SubscriptionWithPlan | null> {
+    return this.prisma.withRequestTenant(tenantId, (tx) =>
+      tx.agencySubscription.findFirst({
+        where: {
+          tenantId,
+          status: { in: [...activeSubscriptionStatuses] },
+          currentPeriodEnd: { gt: new Date() },
+        },
+        include: { plan: true },
+        orderBy: { currentPeriodStart: 'desc' },
+      }),
+    );
+  }
+
   async createSubscription(
     tenantId: string,
     input: CreateAgencySubscriptionDto,

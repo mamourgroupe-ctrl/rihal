@@ -14,6 +14,7 @@ function createService(planResult: unknown = {
     subscriptionPlan: { findFirst: vi.fn().mockResolvedValue(planResult) },
     agencySubscription: {
       findMany: vi.fn().mockResolvedValue([]),
+      findFirst: vi.fn().mockResolvedValue({ id: 'subscription-a' }),
       create: vi.fn().mockResolvedValue({ id: 'subscription-a' }),
       updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       findUniqueOrThrow: vi.fn().mockResolvedValue({ id: 'subscription-a' }),
@@ -48,6 +49,22 @@ describe('AgenciesService', () => {
 
     expect(prisma.withRequestTenant).toHaveBeenCalledOnce();
     expect(transaction.subscriptionPlan.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('gets only the current tenant subscription in a live status and period', async () => {
+    const { service, tenantContext, transaction } = createService();
+
+    await tenantContext.run('tenant-a', () => service.getCurrentSubscription('tenant-a'));
+
+    expect(transaction.agencySubscription.findFirst).toHaveBeenCalledWith({
+      where: {
+        tenantId: 'tenant-a',
+        status: { in: ['TRIALING', 'ACTIVE', 'PAST_DUE'] },
+        currentPeriodEnd: { gt: expect.any(Date) },
+      },
+      include: { plan: true },
+      orderBy: { currentPeriodStart: 'desc' },
+    });
   });
 
   it('creates a trial using plan pricing and a clamped calendar-month period', async () => {
