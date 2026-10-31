@@ -30,3 +30,4 @@ __pycache__/
 .ai-providers.env
 
 .zencoder/
+# AI provider secrets (local only)

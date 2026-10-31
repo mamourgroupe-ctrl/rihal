@@ -58,3 +58,5 @@ temp/
 
 # Docker
 docker-compose.override.yml
+
+# AI provider secrets (local only)

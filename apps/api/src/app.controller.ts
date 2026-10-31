@@ -1,13 +1,17 @@
 import { Controller, Get } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { Public } from './auth/auth.decorators';
 
+@ApiTags('Health')
 @Controller()
 export class AppController {
   constructor(private readonly config: ConfigService) {}
 
   @Public()
   @Get()
+  @ApiOperation({ summary: 'API root information' })
+  @ApiResponse({ status: 200, description: 'API metadata' })
   getRoot() {
     return {
       name: 'Rihal API',
@@ -19,6 +23,8 @@ export class AppController {
 
   @Public()
   @Get('health')
+  @ApiOperation({ summary: 'Health check' })
+  @ApiResponse({ status: 200, description: 'Service is healthy' })
   getHealth() {
     return {
       status: 'ok',

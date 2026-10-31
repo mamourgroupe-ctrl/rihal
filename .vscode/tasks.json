@@ -2,10 +2,9 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "AI Failover Router",
+      "label": "Start Local AI Failover Router",
       "type": "shell",
-      "command": "python",
-      "args": ["${workspaceFolder}/tools/ai_router.py"],
+      "command": "python \"${workspaceFolder}/tools/ai_router.py\"",
       "isBackground": true,
       "runOptions": {
         "runOn": "folderOpen",
