@@ -1,21 +1,31 @@
-# NestJS 11 Architecture
+# NestJS 11 DDD (compact, <=45 lines)
 
-## Structure
-- Follow Domain-Driven Design (DDD). Use Modules, Controllers, and Services strictly.
-- Controllers thin; business logic in services. No business logic in controllers.
-- TypeScript strict mode (`strictNullChecks`, `noImplicitAny`). No `any` without justification.
+## Layers (strict)
+- domain/: pure TS, no NestJS/ORM imports. Entities, VOs, domain errors.
+- application/: UseCases/Commands/Handlers. Orchestrate domain+ports. No HTTP.
+- infrastructure/: repositories (PrismaService), external clients/adapters.
+- presentation/: thin Controllers + DTOs (class-validator). HTTP<->application.
 
-## DTOs & Validation
-- Always use `class-validator` and `class-transformer` for incoming payloads. Never trust user input.
-- Apply `ValidationPipe` globally or at the controller level.
-- Apply `AuthGuard` (JWT) at controller level where required.
+## Rules
+- Controllers: validate input, call one UseCase, return result. No business logic.
+- tenantId from JWT (@CurrentTenantId), never body/query.
+- DTOs: class-validator + class-transformer; ValidationPipe.
+- Paths: path.join/resolve. AuthGuard where required.
 
-## Multi-tenancy (Controller layer)
-- Resolve `tenantId` from signed JWT claims only — never from request body.
-- Never accept `tenantId` in DTOs or query params from clients.
+## Golden Skeleton (thin controller, project style)
+import { Controller, Get, Param } from '@nestjs/common';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { CurrentTenantId } from '../auth/auth.decorators';
+import { GetFooUseCase } from '../application/foo/get-foo.usecase';
 
-## Redis
-- Use the injected Redis client for caching/sessions only. Do not use it as a primary DB.
-
-## Paths
-- Use `path.join`/`path.resolve`; never hardcode separators (Windows/WSL compatible).
+@ApiTags('Foo')
+@Controller('foo')
+export class FooController {
+  constructor(private readonly getFoo: GetFooUseCase) {}
+  @Get(':id')
+  @ApiOperation({ summary: 'Get foo by id' })
+  @ApiResponse({ status: 200, description: 'Foo' })
+  get(@CurrentTenantId() tenantId: string, @Param('id') id: string) {
+    return this.getFoo.execute({ tenantId, id });
+  }
+}
