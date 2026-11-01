@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+.git
+.github
+.vscode
+.idea
+*.log
+coverage
+.env
+.env.*
+.ai-providers.env
+memory-bank
+bruno
