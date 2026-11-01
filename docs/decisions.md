@@ -75,3 +75,41 @@
 
 ### PR #13 status
 - **Merged** on 2026-10-29T22:15:30Z. Human security review still required before Phases 5–7.
+
+## 7. Audit Log Design (Approved for Phase 4)
+**Context:** We need to track who did what, when, and across which tenant, without compromising performance or allowing tampering.
+
+**Decision:**
+- **Table Structure:**
+  - `id` (UUID, Primary Key)
+  - `tenant_id` (UUID, RLS enforced)
+  - `actor_id` (UUID, User ID)
+  - `action` (String: e.g., 'CREATE_PILGRIM', 'UPDATE_INVOICE')
+  - `entity_type` (String)
+  - `entity_id` (UUID)
+  - `old_values` (JSONB, nullable)
+  - `new_values` (JSONB, nullable)
+  - `request_id` (UUID, for tracing)
+  - `created_at` (Timestamp)
+- **Write Mechanism:** Application-level (via Prisma Middleware / Service layer) to capture `actor_id` and `request_id` context.
+- **Immutability:** The `rihal_app` database role will be granted `INSERT` and `SELECT` only on this table. No `UPDATE` or `DELETE` permissions will be granted. (Append-only).
+
+## 8. Error Contract & Request ID (Approved for Phase 4)
+**Context:** Standardize API error responses for the frontend and prevent leaking sensitive info (stack traces, DB errors).
+
+**Decision:**
+- **Middleware:** A `RequestIdMiddleware` will run on every request, generating a `UUID` (or reading `x-request-id` from headers) and attaching it to `req.id`.
+- **Global Exception Filter:** A `GlobalExceptionFilter` will catch all errors.
+- **Response Shape:**
+  ```json
+  {
+    "error": {
+      "code": "VALIDATION_FAILED",
+      "message": "Human readable message",
+      "requestId": "uuid-here",
+      "details": [] // Optional, for validation errors
+    }
+  }
+  ```
+- **Logging:** The `requestId` will be injected into all application logs to correlate errors with specific requests.
+
