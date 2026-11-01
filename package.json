@@ -10,6 +10,8 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "db:migrate": "pnpm --filter @rihal/database db:migrate",
+    "db:migrate:status": "pnpm --filter @rihal/database db:migrate:status",
+    "db:deploy": "pnpm --filter @rihal/database db:deploy",
     "db:generate": "pnpm --filter @rihal/database db:generate",
     "db:studio": "pnpm --filter @rihal/database db:studio",
     "db:seed": "pnpm --filter @rihal/database db:seed"
