@@ -1,0 +1,39 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: rihal-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: rihal_user
+      POSTGRES_PASSWORD: rihal_password
+      POSTGRES_DB: rihal_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - rihal_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rihal_user -d rihal_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: rihal-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - rihal_redisdata:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  rihal_pgdata:
+  rihal_redisdata:
