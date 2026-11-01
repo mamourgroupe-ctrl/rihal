@@ -74,4 +74,4 @@
 - Requirements: managed PostgreSQL compatible with `rihal_app`/`rihal_migrator` roles (RLS + FORCE), S3-compatible storage, SMTP provider (free tier acceptable for v1).
 
 ### PR #13 status
-- ⚠ unverified (GitHub access not available in this session). Treat as open until confirmed.
+- **Merged** on 2026-10-29T22:15:30Z. Human security review still required before Phases 5–7.
