@@ -45,20 +45,21 @@ cd rihal
 pnpm install
 cp .env.example .env
 pnpm db:generate
-pnpm --filter @rihal/database db:push
+pnpm db:migrate
 pnpm dev
+
+Do not use `db:push`; it can bypass migrations and RLS/triggers. Always use `db:migrate`.
 
 ---
 
 ## 🗺️ خارطة الطريق
 
 - [x] Monorepo + Turborepo
-- [x] Prisma Schema (9 جداول)
-- [x] Neon PostgreSQL
-- [ ] RLS Policies
-- [ ] NestJS API
+- [x] Prisma Schema (17 models)
+- [x] Neon PostgreSQL (RLS)
+- [x] NestJS API (auth + agencies subscription)
 - [ ] Next.js Frontend
-- [ ] إدارة المعتمرين
+- [ ] Pilgrims/Groups/Documents/Invoices controllers
 
 ---
 

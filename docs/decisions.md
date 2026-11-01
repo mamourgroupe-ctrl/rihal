@@ -37,3 +37,41 @@
 - **رموز ما قبل المصادقة:** أُضيف `tenantId` إلى refresh tokens وربط مركب بالجلسة. يسمح RLS في lookup العام بقراءة صف واحد فقط عند تطابق تجزئة الرمز مع GUC محلي مؤقت (`app.refresh_token_hash` أو `app.password_reset_token_hash`)؛ جميع الكتابات تتطلب سياق المستأجر العادي.
 - **حد الثقة:** إعداد GUC مخصص في PostgreSQL هو حد ثقة بين API وقاعدة البيانات؛ يستطيع أي عميل يحمل بيانات اعتماد `rihal_app` ضبط GUC بنفسه. لذلك لا يحمي RLS من سرقة بيانات اعتماد التطبيق أو تنفيذ SQL تعسفي بحق الاتصال، ويظل منع SQL injection وحماية الأسرار ومراجعة هوية tenant في التطبيق إلزاميًا. يوفر RLS طبقة دفاع إضافية ضد استعلامات ناقصة أو أخطاء عزل في كود API.
 - **التشغيل:** `DATABASE_URL` للتطبيق و`DIRECT_URL` للهجرات يجب أن يستخدما الدورين المنفصلين. إذا كانت قاعدة قائمة تملك جداولها هوية أخرى، يلزم نقل ملكية المخطط/الجداول إلى `rihal_migrator` بصلاحية مسؤول قبل تطبيق الهجرة؛ لا تستخدم اتصال API أو دورًا مشتركًا كمالك.
+
+
+## 2026-10-31 — Phase 1 decisions
+
+### Authentication (Decision 8)
+- **Decision:** Keep the existing custom NestJS/JWT authentication for MVP.
+- **Reason:** Implemented and covered by tests. Auth.js would break tests and add attack surface.
+- **Status:** Accepted for MVP.
+
+### Document storage adapter (Decision 9)
+- **Decision:** Use an S3-compatible storage adapter interface with a local-filesystem implementation for development.
+- **Reason:** Keeps development offline and avoids provider lock-in. Production provider remains TBD.
+- **Status:** Provider-agnostic until Phase 5 approval.
+
+### CORS policy (Phase 1)
+- Development: default `http://localhost:3000` when `CORS_ORIGINS` is unset.
+- Production: `CORS_ORIGINS` required; comma-separated HTTPS allowlist; no wildcards; fail-fast otherwise.
+
+### RBAC matrix (Phase 1)
+- `GET /api/agencies/subscription` (current): ADMIN, SUPERVISOR, OPERATOR, VIEWER
+- `GET /api/agencies/subscription/list`: ADMIN, SUPERVISOR
+- `POST /api/agencies/subscription`: ADMIN
+- `PATCH /api/agencies/subscription/:id`: ADMIN
+- Enforcement via `RolesGuard` + `@Roles(...)` server-side.
+
+### Pilgrim readiness rules (v1 temporary)
+- Statuses: `DRAFT → REGISTERED → DOCUMENTS_PENDING → READY → IN_TRIP → COMPLETED`
+- Passport validity: `passport_expiry > travel_end_date + 6 months`
+- Required documents (v1): passport, photo, national_id (extensible)
+- READY gate: no missing required documents and passport validity satisfied
+- Automated document authenticity checks deferred to Phase 2.
+
+### Deployment provider (Decision 2, partial)
+- Provider remains TBD. Phase 1 is provider-agnostic.
+- Requirements: managed PostgreSQL compatible with `rihal_app`/`rihal_migrator` roles (RLS + FORCE), S3-compatible storage, SMTP provider (free tier acceptable for v1).
+
+### PR #13 status
+- ⚠ unverified (GitHub access not available in this session). Treat as open until confirmed.
