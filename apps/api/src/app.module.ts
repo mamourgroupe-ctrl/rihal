@@ -29,6 +29,8 @@ const envSchema = z.object({
     .refine((url) => url.startsWith('smtp://') || url.startsWith('smtps://'))
     .optional(),
   SMTP_FROM: z.string().min(3).optional(),
+  CORS_ORIGINS: z.string().optional(),
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(0),
 }).superRefine((config, context) => {
   if (config.NODE_ENV === 'production' && !config.AUTH_URL) {
     context.addIssue({ code: 'custom', path: ['AUTH_URL'], message: 'Required in production' });
@@ -42,12 +44,28 @@ const envSchema = z.object({
   if (config.NODE_ENV === 'production' && !config.SMTP_FROM) {
     context.addIssue({ code: 'custom', path: ['SMTP_FROM'], message: 'Required in production for account recovery' });
   }
+  if (config.NODE_ENV === 'production' && !config.DATABASE_URL) {
+    context.addIssue({ code: 'custom', path: ['DATABASE_URL'], message: 'Required in production' });
+  }
+  if (config.NODE_ENV === 'production' && !config.DIRECT_URL) {
+    context.addIssue({ code: 'custom', path: ['DIRECT_URL'], message: 'Required in production for migrations' });
+  }
+  if (config.NODE_ENV === 'production' && config.CORS_ORIGINS) {
+    const origins = config.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean);
+    if (origins.length === 0 || origins.some((origin) => origin === '*' || !origin.startsWith('https://'))) {
+      context.addIssue({ code: 'custom', path: ['CORS_ORIGINS'], message: 'Must be a comma-separated HTTPS allowlist without wildcards in production' });
+    }
+  }
+  if (config.NODE_ENV === 'production' && !config.CORS_ORIGINS) {
+    context.addIssue({ code: 'custom', path: ['CORS_ORIGINS'], message: 'Required in production' });
+  }
 });
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      // Resolved from both src (development) and dist (production): repository root .env.
       envFilePath: join(__dirname, '../../../.env'),
       validate: (config) => {
         const result = envSchema.safeParse(config);
