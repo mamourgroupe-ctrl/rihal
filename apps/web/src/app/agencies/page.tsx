@@ -1,9 +1,31 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAgencies } from '@/lib/agencies';
+import { ACCESS_TOKEN_STORAGE_KEY } from '@/lib/api-client';
 
 export default function AgenciesPage() {
-  const { data, isLoading, isError, error } = useAgencies();
+  const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { data, isLoading, isError, error } = useAgencies(isAuthenticated);
+
+  useEffect(() => {
+    if (!window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY)) {
+      router.replace('/login');
+      return;
+    }
+
+    setIsAuthenticated(true);
+  }, [router]);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <p className="text-zinc-600 dark:text-zinc-400">Checking authentication…</p>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

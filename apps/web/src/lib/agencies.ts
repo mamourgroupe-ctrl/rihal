@@ -37,9 +37,10 @@ export async function listAgencies(): Promise<AgencySubscription[]> {
   return data;
 }
 
-export function useAgencies() {
+export function useAgencies(enabled = true) {
   return useQuery({
     queryKey: ['agencies'],
     queryFn: listAgencies,
+    enabled,
   });
 }
