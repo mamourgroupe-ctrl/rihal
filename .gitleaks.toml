@@ -1,0 +1,10 @@
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Global allowlist"
+paths = [
+  '''.*\.example$''',
+  '''.*\.md$''',
+  '''bruno/.*''', # If Bruno files contain mock tokens
+]
