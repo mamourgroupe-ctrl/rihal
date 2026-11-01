@@ -22,14 +22,18 @@
 - `.github/workflows/gitleaks.yml`, `.github/workflows/ci.yml`, `.github/workflows/release.yml`
 - `package.json`, `pnpm-lock.yaml`, `.husky/pre-commit` (husky + lint-staged)
 - `docker-compose.yml`, `apps/api/Dockerfile`, `.dockerignore`
-- `apps/web/` (Next.js 15/16 scaffold)
+- `apps/web/src/lib/api-client.ts` (axios instance with mock `x-tenant-id` header)
+- `apps/web/src/lib/agencies.ts` (React Query hook + types for agencies subscription list)
+- `apps/web/src/providers/query-provider.tsx` (QueryClient provider wired into root layout)
+- `apps/web/src/app/agencies/page.tsx` (agencies table page)
+- `apps/web/src/app/layout.tsx` (wrapped children with QueryProvider)
 
 ## Verification
 
 - `pnpm --filter @rihal/api typecheck` ✅ passed
 - `pnpm --filter @rihal/api test` ✅ 30 passed, 13 skipped
 - `pnpm --filter @rihal/api build` ✅ passed
-- `pnpm --filter web build` ✅ passed
+- Frontend wired to API: axios client + React Query provider + `/agencies` page (mock tenant header). `pnpm --filter web build` ✅ passed.
 - `pnpm lint` ❌ could not run (eslint hangs in this environment; not a code issue)
 - Bruno CLI not installed locally; `.bru` files created but not executed.
 
@@ -43,6 +47,6 @@
 
 ## Next logical step
 
-- Wire API client in web app (axios + React Query) to agencies subscription endpoints.
+- ~~Wire API client in web app (axios + React Query) to agencies subscription endpoints.~~ ✅ Done.
 - Add controller-level tests if desired.
 - Begin Phase 5 (Document protection) after Phase 4 review.
