@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@rihal-v2/database": ["./packages/database/src/index.ts"]
+    }
+  },
+  "include": [
+    "vitest.config.ts",
+    "tests/**/*.ts",
+    "packages/**/__tests__/**/*.ts",
+    "apps/**/__tests__/**/*.ts"
+  ]
+}

@@ -1,0 +1,12 @@
+node_modules/
+.pnpm-store/
+.cache/
+.turbo/
+dist/
+coverage/
+*.tsbuildinfo
+packages/database/generated/
+.env
+.env.*
+!.env.example
+*.log
