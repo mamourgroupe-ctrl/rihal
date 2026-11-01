@@ -1,7 +1,7 @@
 import { appendFileSync, readFileSync } from 'node:fs';
 import { randomBytes } from 'node:crypto';
 import { resolve } from 'node:path';
-import { PrismaClient } from '@prisma/client';
+import { createPrismaClient } from '../src/client';
 
 function quoteSqlLiteral(value: string): string {
   return `'${value.replaceAll("'", "''")}'`;
@@ -33,10 +33,7 @@ async function provisionRoles(): Promise<void> {
   const appPassword = suppliedAppPassword ?? (githubEnv ? randomBytes(32).toString('base64url') : undefined);
   const migratorPassword = suppliedMigratorPassword ??
     (githubEnv ? randomBytes(32).toString('base64url') : undefined);
-  const admin = new PrismaClient({
-    datasources: { db: { url: adminUrl } },
-    log: ['error'],
-  });
+  const admin = createPrismaClient({ url: adminUrl, log: ['error'] });
 
   try {
     await admin.$connect();

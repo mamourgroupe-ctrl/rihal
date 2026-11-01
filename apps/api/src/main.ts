@@ -1,21 +1,40 @@
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'node:path';
 import { AppModule } from './app.module';
+import { configureApiApp } from './app.setup';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.enableShutdownHooks();
+
+  const config = app.get(ConfigService);
+
+  // Comma-separated list of browser origins allowed to call the API.
+  // Defaults keep the local Next.js frontend and the API origin working.
+  const configuredOrigins = config
+    .get<string>('APP_ORIGINS', '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const allowedOrigins = configuredOrigins.length > 0
+    ? configuredOrigins
+    : ['http://localhost:3000', `http://localhost:${config.get<number>('PORT', 4000)}`];
+
   app.enableCors({
-    origin: 'http://localhost:3000',
+    origin: allowedOrigins,
     credentials: true,
   });
 
-  app.setGlobalPrefix('api');
+  // Small static status page served at `/` (the API itself lives under `/api`).
+  app.useStaticAssets(join(__dirname, '..', 'public'), { index: 'index.html' });
 
-  const config = app.get(ConfigService);
+  configureApiApp(app);
+
   const port = config.get<number>('PORT', 4000);
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
 
   console.log(`🚀 Rihal API is running on: http://localhost:${port}/api`);
 }

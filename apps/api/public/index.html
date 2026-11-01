@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>رحّال — حالة النظام</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #0f2e24;
+        --muted: #5d7369;
+        --line: #dbe6e0;
+        --accent: #0b7a5a;
+        --accent-soft: #e8f5ef;
+        --danger: #b3261e;
+        --danger-soft: #fdecea;
+        --surface: #ffffff;
+        --bg: #f5f8f6;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background: radial-gradient(circle at 15% 0%, #e7f3ec 0%, var(--bg) 45%, #eef4f1 100%);
+        color: var(--ink);
+        font-family: "Segoe UI", "Noto Kufi Arabic", "Tahoma", system-ui, sans-serif;
+      }
+      main {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 48px 20px 64px;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 8px;
+      }
+      .badge {
+        width: 52px;
+        height: 52px;
+        border-radius: 16px;
+        display: grid;
+        place-items: center;
+        font-size: 26px;
+        background: var(--accent-soft);
+        border: 1px solid var(--line);
+      }
+      h1 { font-size: 26px; margin: 0 0 4px; }
+      .sub { margin: 0; color: var(--muted); font-size: 14px; }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 14px;
+        margin: 28px 0;
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px 18px;
+        box-shadow: 0 1px 2px rgba(15, 46, 36, 0.05);
+      }
+      .card h2 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--muted);
+        margin: 0 0 10px;
+        letter-spacing: 0.02em;
+      }
+      .value { font-size: 15px; font-weight: 600; word-break: break-word; }
+      .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        margin-inline-end: 8px;
+        background: #c6d3cd;
+      }
+      .dot.ok { background: var(--accent); }
+      .dot.bad { background: var(--danger); }
+      section {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 20px;
+        box-shadow: 0 1px 2px rgba(15, 46, 36, 0.05);
+      }
+      section h2 { font-size: 16px; margin: 0 0 14px; }
+      table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      th, td { text-align: start; padding: 9px 6px; border-bottom: 1px solid var(--line); }
+      th { color: var(--muted); font-weight: 600; font-size: 12.5px; }
+      code, .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        direction: ltr;
+        unicode-bidi: embed;
+        background: #f1f5f3;
+        border-radius: 6px;
+        padding: 2px 6px;
+        font-size: 12.5px;
+      }
+      td code { background: transparent; padding: 0; }
+      .method { font-weight: 700; font-size: 12px; color: var(--accent); }
+      .hint {
+        margin: 16px 0 0;
+        font-size: 13px;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+      .error {
+        background: var(--danger-soft);
+        color: var(--danger);
+        border: 1px solid #f3c9c5;
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 13.5px;
+        margin-top: 14px;
+        display: none;
+      }
+      footer { margin-top: 30px; font-size: 12.5px; color: var(--muted); text-align: center; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div class="badge">🕌</div>
+        <div>
+          <h1>رحّال — واجهة برمجة التشغيل</h1>
+          <p class="sub">منصة SaaS متعددة المستأجرين لعمليات وكالات الحج والعمرة</p>
+        </div>
+      </header>
+
+      <div class="grid">
+        <div class="card">
+          <h2>حالة الخدمة</h2>
+          <div class="value"><span class="dot" id="health-dot"></span><span id="health-text">جارٍ الفحص…</span></div>
+        </div>
+        <div class="card">
+          <h2>البيئة</h2>
+          <div class="value" id="environment">—</div>
+        </div>
+        <div class="card">
+          <h2>مدة التشغيل</h2>
+          <div class="value" id="uptime">—</div>
+        </div>
+        <div class="card">
+          <h2>الإصدار</h2>
+          <div class="value" id="version">—</div>
+        </div>
+      </div>
+
+      <section>
+        <h2>المسارات المتاحة</h2>
+        <table>
+          <tbody>
+            <tr><td><span class="method">GET</span></td><td><code>/api</code></td><td>بطاقة الخدمة</td></tr>
+            <tr><td><span class="method">GET</span></td><td><code>/api/health</code></td><td>فحص الصحة</td></tr>
+            <tr><td><span class="method">POST</span></td><td><code>/api/auth/login</code></td><td>تسجيل الدخول (tenantSlug + email + password)</td></tr>
+            <tr><td><span class="method">POST</span></td><td><code>/api/auth/refresh</code></td><td>تدوير رمز الجلسة</td></tr>
+            <tr><td><span class="method">POST</span></td><td><code>/api/auth/logout</code></td><td>إبطال الجلسة</td></tr>
+            <tr><td><span class="method">POST</span></td><td><code>/api/auth/password/forgot</code></td><td>طلب استعادة كلمة المرور</td></tr>
+            <tr><td><span class="method">POST</span></td><td><code>/api/auth/password/reset</code></td><td>تعيين كلمة مرور جديدة</td></tr>
+            <tr><td><span class="method">GET</span></td><td><code>/api/auth/me</code></td><td>الهوية الحالية (يتطلب Bearer token)</td></tr>
+          </tbody>
+        </table>
+        <p class="hint">
+          بيانات تجريبية جاهزة: الوكالة <code>seed-agency-north</code> — المستخدم
+          <code>admin@north.seed.invalid</code>. عيّن كلمة المرور بأمر
+          <code>pnpm --filter @rihal/database db:demo-user</code>.
+        </p>
+        <div class="error" id="error"></div>
+      </section>
+
+      <footer>Proprietary © 2026 Mamourgroupe · Rihal 0.0.1</footer>
+    </main>
+
+    <script>
+      const healthDot = document.getElementById('health-dot');
+      const healthText = document.getElementById('health-text');
+      const errorBox = document.getElementById('error');
+
+      const formatUptime = (seconds) => {
+        const total = Math.floor(Number(seconds) || 0);
+        const h = Math.floor(total / 3600);
+        const m = Math.floor((total % 3600) / 60);
+        return h > 0 ? `${h} س ${m} د` : `${m} د ${total % 60} ث`;
+      };
+
+      Promise.all([
+        fetch('api').then((response) => (response.ok ? response.json() : Promise.reject(response.status))),
+        fetch('api/health').then((response) => (response.ok ? response.json() : Promise.reject(response.status))),
+      ])
+        .then(([info, health]) => {
+          healthDot.className = 'dot ok';
+          healthText.textContent = health.status === 'ok' ? 'تعمل' : health.status;
+          document.getElementById('environment').textContent = health.environment || '—';
+          document.getElementById('uptime').textContent = formatUptime(health.uptime);
+          document.getElementById('version').textContent = info.version || '—';
+        })
+        .catch((status) => {
+          healthDot.className = 'dot bad';
+          healthText.textContent = 'غير متاحة';
+          errorBox.style.display = 'block';
+          errorBox.textContent = `فشل الاتصال بواجهة البرمجة (رمز ${status}).`;
+        });
+    </script>
+  </body>
+</html>

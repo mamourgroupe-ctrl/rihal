@@ -40,13 +40,28 @@
 
 ## 🚀 البدء السريع
 
+```bash
 git clone https://github.com/mamourgroupe-ctrl/rihal.git
 cd rihal
 pnpm install
-cp .env.example .env
-pnpm db:generate
-pnpm --filter @rihal/database db:push
-pnpm dev
+cp .env.example .env        # ثم عدّل DATABASE_URL / DIRECT_URL / AUTH_SECRET
+pnpm db:generate            # لا ينزّل أي محرّك ثنائي: query compiler + pg
+pnpm --filter @rihal/database db:migrate
+pnpm db:seed
+pnpm --filter @rihal/database db:demo-user   # كلمة مرور حقيقية لمستخدم تجريبي
+pnpm --filter @rihal/api dev                 # http://localhost:4000
+```
+
+بعد التشغيل:
+
+- صفحة الحالة: <http://localhost:4000/>
+- واجهة البرمجة: <http://localhost:4000/api> و`/api/health`
+- بيانات الدخول التجريبية: الوكالة `seed-agency-north` والمستخدم `admin@north.seed.invalid`
+  (كلمة المرور يطبعها أمر `db:demo-user`).
+
+> يستخدم المشروع دورَي PostgreSQL منفصلين: `rihal_app` للتشغيل (مع RLS) و`rihal_migrator`
+> للهجرات والبذور. راجع `packages/database/prisma/roles-bootstrap.sql` و`.env.example`.
+
 
 ---
 
@@ -55,8 +70,8 @@ pnpm dev
 - [x] Monorepo + Turborepo
 - [x] Prisma Schema (9 جداول)
 - [x] Neon PostgreSQL
-- [ ] RLS Policies
-- [ ] NestJS API
+- [x] RLS Policies
+- [x] NestJS API (صحة الخدمة + المصادقة والجلسات)
 - [ ] Next.js Frontend
 - [ ] إدارة المعتمرين
 

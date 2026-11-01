@@ -47,7 +47,10 @@ const envSchema = z.object({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: join(__dirname, '../../.env'),
+      // Repository root `.env` first (as documented in the README), then the
+      // working directory, so `pnpm dev` from the repo root or from the app
+      // directory both pick up the same configuration.
+      envFilePath: [join(__dirname, '../../../.env'), join(process.cwd(), '.env')],
       validate: (config) => {
         const result = envSchema.safeParse(config);
         if (!result.success) {
