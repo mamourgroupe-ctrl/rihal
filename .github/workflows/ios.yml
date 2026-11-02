@@ -1,0 +1,120 @@
+name: iOS build
+
+# iOS cannot be built on Windows/Linux: this workflow is the supported path.
+# Simulator build runs without signing; signing/TestFlight needs the secrets below.
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_url:
+        description: "RIHAL_SERVER_URL (اتركه فارغًا للوضع المضمَّن)"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "ios-v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Simulator build (unsigned)
+    runs-on: macos-latest
+    env:
+      RIHAL_SERVER_URL: ${{ github.event.inputs.server_url || vars.RIHAL_SERVER_URL || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Copy the console into the mobile shell
+        run: pnpm --filter @rihal/mobile prepare:web
+
+      - name: Add the iOS platform (first run only)
+        working-directory: apps/mobile
+        run: |
+          if [ ! -d ios ]; then pnpm exec cap add ios; fi
+          pnpm exec cap sync ios
+
+      - name: Install CocoaPods dependencies
+        working-directory: apps/mobile/ios/App
+        run: |
+          if [ -f Podfile ]; then pod install --repo-update; fi
+
+      - name: Build for the simulator (no signing)
+        working-directory: apps/mobile/ios/App
+        run: |
+          WORKSPACE=$(ls -d *.xcworkspace 2>/dev/null | head -n1)
+          if [ -z "$WORKSPACE" ]; then
+            xcodebuild -project App.xcodeproj -scheme App -sdk iphonesimulator \
+              -configuration Debug -destination 'generic/platform=iOS Simulator' \
+              CODE_SIGNING_ALLOWED=NO build
+          else
+            xcodebuild -workspace "$WORKSPACE" -scheme App -sdk iphonesimulator \
+              -configuration Debug -destination 'generic/platform=iOS Simulator' \
+              CODE_SIGNING_ALLOWED=NO build
+          fi
+
+      - name: Upload simulator build
+        uses: actions/upload-artifact@v4
+        with:
+          name: rihal-ios-simulator-${{ github.sha }}
+          if-no-files-found: warn
+          retention-days: 14
+          path: ~/Library/Developer/Xcode/DerivedData/**/Build/Products/Debug-iphonesimulator/*.app
+
+      # ---- Optional signed archive (TestFlight) ----
+      # Requires: APPLE_CERT_P12, APPLE_CERT_PASSWORD, APPLE_TEAM_ID,
+      #           APPLE_PROVISION_PROFILE, APP_STORE_CONNECT_KEY_ID,
+      #           APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_P8.
+      - name: Import signing certificate
+        if: ${{ secrets.APPLE_CERT_P12 != '' }}
+        env:
+          APPLE_CERT_P12: ${{ secrets.APPLE_CERT_P12 }}
+          APPLE_CERT_PASSWORD: ${{ secrets.APPLE_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/app-signing.keychain-db"
+          echo "$APPLE_CERT_P12" | base64 -d > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$APPLE_CERT_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -k "" "$KEYCHAIN"
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+
+      - name: Archive and export (TestFlight ready)
+        if: ${{ secrets.APPLE_CERT_P12 != '' }}
+        working-directory: apps/mobile/ios/App
+        run: |
+          WORKSPACE=$(ls -d *.xcworkspace 2>/dev/null | head -n1)
+          xcodebuild -workspace "$WORKSPACE" -scheme App -sdk iphoneos \
+            -configuration Release -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
+            CODE_SIGN_STYLE=Manual \
+            PROVISIONING_PROFILE_SPECIFIER=${{ secrets.APPLE_PROVISION_PROFILE }} \
+            archive
+          xcodebuild -exportArchive -archivePath "$RUNNER_TEMP/App.xcarchive" \
+            -exportOptionsPlist ExportOptions.plist -exportPath "$RUNNER_TEMP/export"
+
+      - name: Upload signed IPA
+        if: ${{ secrets.APPLE_CERT_P12 != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rihal-ios-ipa-${{ github.sha }}
+          if-no-files-found: warn
+          path: ${{ runner.temp }}/export/*.ipa

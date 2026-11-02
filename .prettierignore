@@ -1,0 +1,9 @@
+node_modules
+dist
+.turbo
+coverage
+pnpm-lock.yaml
+apps/mobile/www
+apps/mobile/android
+apps/api/public
+docs/

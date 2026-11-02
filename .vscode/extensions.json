@@ -1,0 +1,29 @@
+{
+  "recommendations": [
+    "GitHub.copilot",
+    "GitHub.copilot-chat",
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+    "EditorConfig.EditorConfig",
+    "Prisma.prisma",
+    "vitest.explorer",
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+    "redhat.vscode-yaml",
+    "ms-azuretools.vscode-docker",
+    "humao.rest-client",
+    "streetsidesoftware.code-spell-checker",
+    "usernamehw.errorlens",
+    "christian-kohler.path-intellisense",
+    "vscjava.vscode-java-pack",
+    "adelphes.android-dev-ext",
+    "redhat.vscode-xml",
+    "github.vscode-github-actions",
+    "timonwong.shellcheck",
+    "davidanson.vscode-markdownlint"
+  ],
+  "unwantedRecommendations": [
+    "ms-vscode.vscode-typescript-tslint-plugin",
+    "hookyqr.beautify"
+  ]
+}

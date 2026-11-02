@@ -65,6 +65,33 @@ pnpm --filter @rihal/api dev                 # http://localhost:4000
 
 ---
 
+## 🧰 بيئة التطوير (VS Code + وكلاء ذكاء اصطناعي)
+
+بيئة الفريق كاملة داخل المستودع: مهمات جاهزة، تصحيح متعدد الأهداف، تمديدات مقترحة،
+وكلاء متخصصون لكل طبقة، وسير بناء للجوال.
+
+```bash
+powershell -ExecutionPolicy Bypass -File tooling/setup/windows.ps1   # أو macos.sh / linux.sh
+corepack pnpm install
+node tooling/doctor.mjs      # تقرير جاهزية: Node, JDK, Android SDK, PostgreSQL, VS Code
+code .
+```
+
+| ما تحتاجه | أين |
+| --- | --- |
+| دليل التهيئة الكامل | [`docs/dev-environment.md`](docs/dev-environment.md) |
+| المهام والتصحيح | `.vscode/tasks.json` · `.vscode/launch.json` |
+| فحص البيئة | `node tooling/doctor.mjs` |
+| وكلاء متخصصون (معماري، API، بيانات، أندرويد، iOS، جودة، أمن، مراجع) | `.github/chatmodes/` |
+| قواعد تلقائية حسب المسار | `.github/instructions/` · `.github/copilot-instructions.md` |
+| قوالب أوامر (`/new-endpoint`, `/fix-bug`, `/mobile-release`) | `.github/prompts/` |
+| أدوات خارجية للوكلاء (GitHub, Playwright, Context7, Postgres) | `.vscode/mcp.json` |
+| بناء أندرويد وiOS في CI | `.github/workflows/android.yml` · `ios.yml` |
+
+> iOS لا يُبنى على Windows؛ الـworkflow أعلاه هو المسار المعتمد (macOS runner).
+
+---
+
 ## 📱 تطبيق أندرويد
 
 الواجهة (`apps/api/public`) صارت تطبيقًا قابلًا للتثبيت، ويوجد غلاف Capacitor جاهز لبناء APK/AAB:
