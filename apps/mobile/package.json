@@ -8,8 +8,9 @@
     "cap:add:android": "cap add android",
     "cap:sync": "cap sync android",
     "android:open": "cap open android",
-    "android:debug": "cap sync android && cd android && ./gradlew assembleDebug",
-    "android:release": "cap sync android && cd android && ./gradlew assembleRelease"
+    "android:debug": "cap sync android && node tools/gradle.mjs assembleDebug",
+    "android:release": "cap sync android && node tools/gradle.mjs assembleRelease",
+    "android:bundle": "cap sync android && node tools/gradle.mjs bundleRelease"
   },
   "dependencies": {
     "@capacitor/android": "8.6.0",
