@@ -28,8 +28,9 @@ async function bootstrap() {
     credentials: true,
   });
 
-  // Small static status page served at `/` (the API itself lives under `/api`).
-  app.useStaticAssets(join(__dirname, '..', 'public'), { index: 'index.html' });
+  // The live preview opens at `/`, so the operations dashboard is the index.
+  // The health/status page stays available at `/status.html`.
+  app.useStaticAssets(join(__dirname, '..', 'public'), { index: 'dashboard.html' });
 
   configureApiApp(app);
 

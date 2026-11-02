@@ -54,8 +54,8 @@ pnpm --filter @rihal/api dev                 # http://localhost:4000
 
 بعد التشغيل:
 
-- لوحة التحكم: <http://localhost:4000/dashboard.html>
-- صفحة الحالة: <http://localhost:4000/>
+- لوحة التحكم: <http://localhost:4000/>
+- صفحة الحالة: <http://localhost:4000/status.html>
 - واجهة البرمجة: <http://localhost:4000/api> و`/api/health`
 - بيانات الدخول التجريبية: الوكالة `seed-agency-north` والمستخدم `admin@north.seed.invalid`
   (كلمة المرور يطبعها أمر `db:demo-user`).
