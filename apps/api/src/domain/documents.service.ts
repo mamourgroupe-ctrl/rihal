@@ -69,6 +69,33 @@ export class DocumentsService {
     });
   }
 
+  async list(
+    tenantId: string,
+    options: { pilgrimId?: string; verified?: boolean; limit: number; offset: number },
+  ): Promise<{ items: Document[]; total: number }> {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
+      const where = {
+        tenantId,
+        archivedAt: null,
+        ...(options.pilgrimId ? { pilgrimId: options.pilgrimId } : {}),
+        ...(options.verified === undefined ? {} : { verified: options.verified }),
+      };
+      const [items, total] = await Promise.all([
+        tx.document.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip: options.offset,
+          take: options.limit,
+          include: {
+            pilgrim: { select: { id: true, fullNameAr: true, fullNameEn: true } },
+          },
+        }),
+        tx.document.count({ where }),
+      ]);
+      return { items, total };
+    });
+  }
+
   async verify(tenantId: string, documentId: string): Promise<Document> {
     return this.prismaService.withTenant(tenantId, async (tx) => {
       const result = await tx.document.updateMany({

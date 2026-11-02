@@ -30,7 +30,7 @@ async function bootstrap() {
 
   // The live preview opens at `/`, so the operations dashboard is the index.
   // The health/status page stays available at `/status.html`.
-  app.useStaticAssets(join(__dirname, '..', 'public'), { index: 'dashboard.html' });
+  app.useStaticAssets(join(__dirname, '..', 'public'), { index: 'index.html' });
 
   configureApiApp(app);
 

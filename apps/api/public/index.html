@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>رحّال — منصة عمليات الحج والعمرة</title>
+    <link rel="stylesheet" href="assets/app.css" />
+  </head>
+  <body>
+    <!-- ============ Login ============ -->
+    <section class="login-shell" id="login" style="display: none">
+      <form class="login-card" id="login-form">
+        <div class="brand">
+          <div class="brand-mark">🕌</div>
+          <div>
+            <h1>رحّال</h1>
+            <p>منصة إدارة عمليات الحج والعمرة</p>
+          </div>
+        </div>
+        <p class="form-error" id="login-error"></p>
+        <div class="field">
+          <label for="tenant">الوكالة</label>
+          <input id="tenant" name="tenant" autocomplete="organization" required />
+        </div>
+        <div class="field">
+          <label for="email">البريد الإلكتروني</label>
+          <input id="email" name="email" type="email" autocomplete="username" required />
+        </div>
+        <div class="field">
+          <label for="password">كلمة المرور</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required />
+        </div>
+        <button class="btn btn-primary btn-block" type="submit" id="login-submit">تسجيل الدخول</button>
+        <p class="login-hint">
+          حساب تجريبي: <code>seed-agency-north</code> / <code>admin@north.seed.invalid</code>.
+          إن لم تعمل كلمة المرور شغّل <code>db:demo-user</code>.
+        </p>
+      </form>
+    </section>
+
+    <!-- ============ App ============ -->
+    <div id="app">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">🕌</div>
+          <div>
+            <h1>رحّال</h1>
+            <p id="tenant-slug"></p>
+          </div>
+        </div>
+
+        <button class="nav-item active" data-view="overview"><span class="ico">⊞</span> نظرة عامة</button>
+        <button class="nav-item" data-view="pilgrims"><span class="ico">🧕</span> المعتمرون</button>
+        <button class="nav-item" data-view="groups"><span class="ico">👥</span> المجموعات</button>
+        <button class="nav-item" data-view="documents"><span class="ico">📄</span> الوثائق</button>
+        <button class="nav-item" data-view="invoices"><span class="ico">🧾</span> الفواتير</button>
+        <button class="nav-item" data-view="users"><span class="ico">🔑</span> الفريق</button>
+
+        <div class="spacer"></div>
+        <div class="foot">عزل مستأجرين بـ RLS<br />كل استعلام داخل سياق الوكالة</div>
+      </aside>
+
+      <div class="main">
+        <header class="topbar">
+          <h2 id="page-title">نظرة عامة</h2>
+          <div class="spacer"></div>
+          <div class="user-chip">
+            <div class="avatar" id="avatar">؟</div>
+            <div class="user-meta">
+              <span id="user-name">—</span>
+              <small id="user-role">—</small>
+            </div>
+          </div>
+          <button class="btn btn-ghost" id="logout">خروج</button>
+        </header>
+
+        <div class="content">
+          <!-- Overview -->
+          <section class="view" id="view-overview">
+            <div class="view-head">
+              <span class="hint" id="overview-at">—</span>
+            </div>
+            <div class="kpis" id="overview-kpis"></div>
+            <div class="grid-2">
+              <div class="panel">
+                <div class="panel-head"><h3>أحدث المعتمرين</h3></div>
+                <div class="panel-body" id="overview-pilgrims"></div>
+              </div>
+              <div class="panel">
+                <div class="panel-head"><h3>توزيع حالات المعتمرين</h3></div>
+                <div class="bars" id="overview-bars"></div>
+                <div class="capacity">
+                  <div class="capacity-head"><span>إشغال المجموعات</span><b id="overview-capacity-text">—</b></div>
+                  <div class="bar-track"><div class="bar-fill" id="overview-capacity-fill" style="width:0%"></div></div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>أحدث الفواتير</h3></div>
+              <div class="panel-body" id="overview-invoices"></div>
+            </div>
+          </section>
+
+          <!-- Pilgrims -->
+          <section class="view" id="view-pilgrims" style="display: none">
+            <div class="toolbar">
+              <input id="pilgrims-search" type="search" placeholder="ابحث بالاسم أو رقم الجواز…" />
+              <select id="pilgrims-status">
+                <option value="">كل الحالات</option>
+                <option value="DRAFT">مسوّدة</option>
+                <option value="REGISTERED">مسجّل</option>
+                <option value="DOCUMENTS_UPLOADED">وثائق مرفوعة</option>
+                <option value="READY_FOR_BOOKING">جاهز للحجز</option>
+                <option value="BOOKED">محجوز</option>
+                <option value="PERMIT_ISSUED">تصريح صادر</option>
+                <option value="COMPLETED">مكتمل</option>
+                <option value="CANCELLED">ملغى</option>
+              </select>
+              <span class="spacer"></span>
+              <button class="btn btn-primary" id="pilgrims-add">+ معتمر جديد</button>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>سجل المعتمرين</h3><span class="count" id="pilgrims-count"></span></div>
+              <div class="panel-body" id="pilgrims-body"></div>
+              <div class="panel-head" style="border-top:1px solid var(--line);border-bottom:none" id="pilgrims-pager"></div>
+            </div>
+          </section>
+
+          <!-- Groups -->
+          <section class="view" id="view-groups" style="display: none">
+            <div class="toolbar">
+              <span class="hint">المجموعات تُدار داخل الوكالة الواحدة؛ العضوية والأهلية تُفحص في قاعدة البيانات.</span>
+              <span class="spacer"></span>
+              <button class="btn btn-primary" id="groups-add">+ مجموعة جديدة</button>
+            </div>
+            <div class="view-head"><span class="count" id="groups-count"></span></div>
+            <div id="groups-body"></div>
+          </section>
+
+          <!-- Documents -->
+          <section class="view" id="view-documents" style="display: none">
+            <div class="toolbar">
+              <select id="documents-verified">
+                <option value="">كل الوثائق</option>
+                <option value="false">بانتظار التحقق</option>
+                <option value="true">متحقَّقة</option>
+              </select>
+              <span class="spacer"></span>
+              <button class="btn btn-primary" id="documents-add">+ تسجيل وثيقة</button>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>وثائق المعتمرين</h3><span class="count" id="documents-count"></span></div>
+              <div class="panel-body" id="documents-body"></div>
+            </div>
+          </section>
+
+          <!-- Invoices -->
+          <section class="view" id="view-invoices" style="display: none">
+            <div class="toolbar">
+              <select id="invoices-status">
+                <option value="">كل الحالات</option>
+                <option value="DRAFT">مسوّدة</option>
+                <option value="ISSUED">صادرة</option>
+                <option value="PAID">مدفوعة</option>
+                <option value="OVERDUE">متأخرة</option>
+                <option value="CANCELLED">ملغاة</option>
+              </select>
+              <span class="spacer"></span>
+              <button class="btn btn-primary" id="invoices-add">+ فاتورة جديدة</button>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>الفواتير</h3><span class="count" id="invoices-count"></span></div>
+              <div class="panel-body" id="invoices-body"></div>
+            </div>
+          </section>
+
+          <!-- Team -->
+          <section class="view" id="view-users" style="display: none">
+            <div class="toolbar">
+              <span class="hint">إدارة الحسابات متاحة للمدير فقط؛ تغيير الدور أو الإيقاف يُبطل جلسات المستخدم.</span>
+              <span class="spacer"></span>
+              <button class="btn btn-primary" id="users-add">+ عضو فريق</button>
+            </div>
+            <div class="panel">
+              <div class="panel-head"><h3>فريق الوكالة</h3><span class="count" id="users-count"></span></div>
+              <div class="panel-body" id="users-body"></div>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal -->
+    <div class="modal-backdrop" id="modal-backdrop">
+      <div class="modal" id="modal" role="dialog" aria-modal="true">
+        <form id="modal-form">
+          <div class="modal-head">
+            <h3 id="modal-title">—</h3>
+            <button type="button" class="btn btn-ghost btn-sm" id="modal-close" aria-label="إغلاق">✕</button>
+          </div>
+          <div class="modal-body">
+            <p class="form-error" id="modal-error"></p>
+            <div id="modal-body"></div>
+          </div>
+          <div class="modal-foot">
+            <button type="submit" class="btn btn-primary" id="modal-submit">حفظ</button>
+            <button type="button" class="btn btn-ghost" id="modal-cancel">إلغاء</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+    <script src="assets/app.js"></script>
+  </body>
+</html>
