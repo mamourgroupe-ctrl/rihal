@@ -283,6 +283,62 @@ code .
 | اختبارات PostgreSQL متخطّاة | لا `TEST_DATABASE_URL` | أنشئ `rihal_test` ومرّر المتغيّرين |
 | Copilot لا يتبع القواعد | الملف في فرع غير الفرع الافتراضي | انسخ التعليمات إلى `main` أو استخدم الوضع المناسب |
 | MCP لا يعمل | `npx`/موافقة | استخدم `npx.cmd` على Windows ووافق على الخادم |
+| `Your local changes … would be overwritten by checkout` | تعديلات محلية على ملفات موجودة في الفرع الهدف | `git stash push -u` ثم التبديل ثم `git stash pop` — التفصيل في §١١ |
+| `Cannot find module …\tooling\doctor.mjs` | لسه على فرع قديم (الملف غير موجود فيه) | `git branch --show-current` — يجب أن يكون `dev-env` أو الفرع الجاهز |
+
+---
+
+## ١١. الانتقال إلى فرع البيئة بأمان (حل تعارض الـcheckout)
+
+يظهر هذا الخطأ عندما تكون لديك تعديلات غير محفوظة على ملفات موجودة أيضًا في الفرع الهدف
+(شائع: `.env.example`, `.vscode/settings.json`, `AGENTS.md`):
+
+```
+error: Your local changes to the following files would be overwritten by checkout
+```
+
+### التسلسل الآمن
+
+```bash
+cd ~/rihal
+git status --short                       # ١) اعرف ما الذي تغيّر فعليًا
+
+# ٢) احتفظ بنسخة من إعداداتك الشخصية خارج المستودع (إن أردت الرجوع إليها)
+cp .vscode/settings.json ~/settings.personal.json 2>/dev/null || true
+
+# ٣) خزّن التعديلات (بما فيها الملفات غير المتعقَّبة)
+git stash push -u -m "wip-before-dev-env"
+
+# ٤) بدّل إلى فرع البيئة
+git switch -c dev-env origin/arena/0d97b4aa-rihal
+
+# ٥) تحقق أن الملفات وصلت
+ls tooling/doctor.mjs apps/mobile/package.json .vscode/tasks.json
+
+# ٦) (اختياري) استعد تعديلاتك فوق الفرع الجديد — قد يحدث تعارض فادمجه يدويًا
+git stash pop
+```
+
+### إن أردت البقاء على فرعك الحالي بدل التبديل
+
+```bash
+git stash push -u -m "wip"
+git merge origin/arena/0d97b4aa-rihal
+git stash pop
+```
+
+### تنظيف بقايا تثبيت سابقة في الجذر
+
+إن ظهرت `@capacitor/*` أو `husky` ضمن تبعيات **الجذر** بدل `apps/mobile`:
+
+```bash
+corepack pnpm remove -D @capacitor/core @capacitor/cli @capacitor/android
+```
+
+ثم تأكد من الفرع الصحيح: `git branch --show-current` و`ls apps/mobile`.
+
+> نصيحة: قبل أي تبديل فرع، اجعل شجرة العمل نظيفة (`git status` فارغ). هذا يمنع ٩٠٪ من أخطاء
+> «الملف غير موجود» و«التعارض» التي تُهدر وقت الفريق.
 
 ---
 

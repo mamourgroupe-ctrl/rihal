@@ -130,6 +130,18 @@ record(
     : '',
 );
 
+const currentBranch = run('git', ['branch', '--show-current'], { cwd: root }) || '(detached)';
+const branchAheadOfMain = ['main', 'master'].includes(currentBranch);
+record(
+  'المستودع',
+  'الفرع الحالي',
+  branchAheadOfMain ? 'warn' : 'ok',
+  currentBranch,
+  branchAheadOfMain
+    ? 'أنت على الفرع الرئيسي؛ للعمل على الجوال/البيئة استخدم: git switch -c dev-env origin/arena/0d97b4aa-rihal'
+    : '',
+);
+
 record(
   'المستودع',
   'node_modules',
