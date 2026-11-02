@@ -63,6 +63,23 @@ pnpm --filter @rihal/api dev                 # http://localhost:4000
 > يستخدم المشروع دورَي PostgreSQL منفصلين: `rihal_app` للتشغيل (مع RLS) و`rihal_migrator`
 > للهجرات والبذور. راجع `packages/database/prisma/roles-bootstrap.sql` و`.env.example`.
 
+---
+
+## 📱 تطبيق أندرويد
+
+الواجهة (`apps/api/public`) صارت تطبيقًا قابلًا للتثبيت، ويوجد غلاف Capacitor جاهز لبناء APK/AAB:
+
+| المسار | الناتج | الأمر |
+| :--- | :--- | :--- |
+| PWA | تثبيت من Chrome بلا متجر | افتح رابط الوكالة عبر HTTPS واختر «تثبيت التطبيق» |
+| APK/AAB | ملف تثبيت/نشر في Google Play | `cd apps/mobile && pnpm prepare:web && pnpm exec cap sync android && cd android && ./gradlew assembleDebug` |
+
+- يعمل بلا اتصال لهيكل الواجهة فقط؛ استجابات `/api/` **لا تُخزَّن** على الجهاز (بيانات جوازات وتأمين).
+- الوضع البعيد الموصى به: `RIHAL_SERVER_URL=https://your-console.example pnpm prepare:web` — يفتح التطبيق الواجهة من أصلها الحقيقي فتبقى الجلسة first-party.
+- الوضع المضمَّن: بدون متغيّر، يطلب التطبيق عنوان الخادم في أول تشغيل ويحفظه على الجهاز.
+- الأيقونة المصدرية: `apps/mobile/resources/icon-source.png` (أيقونات PWA في `apps/api/public/icons/`، وأيقونات أندرويد وشاشات البداية في `apps/mobile/android/app/src/main/res/`).
+
+الدليل الكامل (JDK/SDK، التوقيع، CORS، حدود المراحل 5–6): [`docs/android.md`](docs/android.md).
 
 ---
 
@@ -73,9 +90,10 @@ pnpm --filter @rihal/api dev                 # http://localhost:4000
 - [x] Neon PostgreSQL
 - [x] RLS Policies
 - [x] NestJS API (صحة الخدمة + المصادقة والجلسات)
-- [ ] Next.js Frontend
-- [x] لوحة تحكم للعمليات (ملخص المعتمرين والمجموعات والفواتير والوثائق)
-- [ ] إدارة المعتمرين (إنشاء وتعديل من الواجهة)
+- [x] واجهة عمليات تفاعلية (معتمرون، مجموعات، وثائق، فواتير، فريق)
+- [x] PWA قابلة للتثبيت + غلاف Capacitor لأندرويد
+- [ ] تخزين خاص لملفات الوثائق (المرحلة 5)
+- [ ] إشعارات فورية (Push) (المرحلة 6)
 
 ---
 

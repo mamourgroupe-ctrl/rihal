@@ -12,7 +12,10 @@
     "db:migrate": "pnpm --filter @rihal/database db:migrate",
     "db:generate": "pnpm --filter @rihal/database db:generate",
     "db:studio": "pnpm --filter @rihal/database db:studio",
-    "db:seed": "pnpm --filter @rihal/database db:seed"
+    "db:seed": "pnpm --filter @rihal/database db:seed",
+    "android:prepare": "pnpm --filter @rihal/mobile prepare:web",
+    "android:sync": "pnpm --filter @rihal/mobile cap:sync",
+    "android:apk": "pnpm --filter @rihal/mobile android:debug"
   },
   "devDependencies": {
     "eslint": "^10.13.0",

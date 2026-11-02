@@ -2,7 +2,14 @@
 (() => {
   'use strict';
 
-  const API = 'api/';
+  // Relative by default (same-origin console + API). A native shell that hosts
+  // the assets itself can point at a remote API through window.RIHAL_API_BASE,
+  // e.g. "https://app.example.sa/api/".
+  const API = (() => {
+    const base = (typeof window !== 'undefined' && window.RIHAL_API_BASE) || 'api/';
+    return base.endsWith('/') ? base : `${base}/`;
+  })();
+  const CREDENTIALS = API.startsWith('http') ? { credentials: 'include', mode: 'cors' } : {};
   const STORAGE_KEY = 'rihal.session';
 
   const state = {
@@ -73,6 +80,7 @@
 
   async function raw(path, options = {}) {
     return fetch(API + path, {
+      ...CREDENTIALS,
       ...options,
       headers: {
         'content-type': 'application/json',
@@ -104,7 +112,7 @@
 
   async function refreshSession() {
     try {
-      const response = await fetch(`${API}auth/refresh`, { method: 'POST' });
+      const response = await fetch(`${API}auth/refresh`, { method: 'POST', ...CREDENTIALS });
       if (!response.ok) return false;
       const body = await response.json();
       state.session = { ...state.session, accessToken: body.accessToken, user: { ...state.session.user, ...body.user } };
@@ -119,6 +127,7 @@
   async function login(tenantSlug, email, password) {
     const response = await fetch(`${API}auth/login`, {
       method: 'POST',
+      ...CREDENTIALS,
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ tenantSlug, email, password }),
     });
@@ -132,7 +141,7 @@
   }
 
   function signOut(message) {
-    fetch(`${API}auth/logout`, { method: 'POST' }).catch(() => {});
+    fetch(`${API}auth/logout`, { method: 'POST', ...CREDENTIALS }).catch(() => {});
     state.session = null;
     state.data = { overview: null, pilgrims: null, groups: null, documents: null, invoices: null, users: null };
     sessionStorage.removeItem(STORAGE_KEY);

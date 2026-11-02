@@ -113,3 +113,12 @@
 - دُمج PR #2 إلى `main` في 2026-10-27 بالـcommit `e620e620811474c5bc0f5fe52003d79412602022`، واكتملت مراجعة المرحلة 3.
 - على commit `f7f53d6` نجح CI رقم `40962798904` بالكامل: توليد Prisma، تهيئة الأدوار، migration reset، seed، lint، typecheck، build، الاختبارات على PostgreSQL، وفحص تشغيل API. نجح تدقيق التبعيات رقم `40962798822` أيضًا.
 - PR #13 مفتوح لمراجعة المرحلة 4؛ CI ناجح لكن المراجعة الأمنية البشرية ما زالت مطلوبة، ولم تُدمج التغييرات. لا تبدأ المراحل 5–7 قبل استيفاء المراجعة.
+
+## تطبيق أندرويد (2026-11-02)
+
+- الواجهة صارت PWA: `manifest.webmanifest` (عربي، RTL، standalone، أيقونات 192/512/maskable، اختصارات)، و`sw.js` يخزّن هيكل الواجهة فقط ويستثني كل ما تحت `/api/` صراحةً، وأيقونات في `apps/api/public/icons/`.
+- `app.js` صار يقبل تجاوز أصل الـAPI عبر `window.RIHAL_API_BASE` (افتراضيًا `api/` نسبيًا) ويضيف `credentials: 'include'` عند استخدام أصل مطلق.
+- أُضيفت الحزمة `apps/mobile` (Capacitor 8.6.0) مع مشروع `android/` مُولَّد: `appId sa.rihal.console`، `minSdk 24`، `targetSdk 36`، أيقونات تكيفية بلون `#0B3D26`، شاشات بداية، تعطيل `allowBackup`، وقواعد `data_extraction_rules`.
+- `tools/prepare-web.mjs` ينسخ `apps/api/public` إلى `www` ويزرع `native-config.js` و`native-boot.js`؛ وضعان: بعيد عبر `RIHAL_SERVER_URL` (الأصل نفسه فتبقى الجلسة first-party)، أو مضمَّن يطلب عنوان الخادم ويحفظه على الجهاز.
+- تحقق محلي: 7/7 حالات لـ`native-boot` (بدون خادم، خادم محفوظ، على أصل الخادم بعد التحويل، خادم مضمَّن افتراضيًا، متصفح سطح مكتب)، و`cap sync android` ينسخ الأصول بنجاح.
+- لم يُنفَّذ `gradlew assembleDebug` في بيئة العمل (لا JDK/SDK)؛ يُنفَّذ على جهاز المطوّر أو CI. الدليل: `docs/android.md`.

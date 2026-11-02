@@ -41,3 +41,14 @@ temp/
 
 # Docker
 docker-compose.override.yml
+
+# Mobile shell (Capacitor)
+apps/mobile/www/
+apps/mobile/android/.gradle/
+apps/mobile/android/build/
+apps/mobile/android/app/build/
+apps/mobile/android/local.properties
+apps/mobile/android/.idea/
+apps/mobile/android/keystore.properties
+apps/mobile/android/*.jks
+apps/mobile/android/*.keystore
