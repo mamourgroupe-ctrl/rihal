@@ -101,12 +101,12 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL tenant and domain invariant
       import('../src/domain/invoices.service'),
       import('../src/domain/pilgrims.service'),
     ]);
-    prisma = new database.PrismaClient({
-      datasources: { db: { url: integrationDatabaseUrl! } },
+    prisma = database.createPrismaClient({
+      url: integrationDatabaseUrl!,
       log: ['error'],
     });
-    adminPrisma = new database.PrismaClient({
-      datasources: { db: { url: integrationAdminDatabaseUrl! } },
+    adminPrisma = database.createPrismaClient({
+      url: integrationAdminDatabaseUrl!,
       log: ['error'],
     });
     await Promise.all([prisma.$connect(), adminPrisma.$connect()]);

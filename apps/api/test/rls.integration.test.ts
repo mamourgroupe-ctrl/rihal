@@ -422,12 +422,12 @@ async function cleanFixtures(): Promise<void> {
 describe.skipIf(!canRunIntegrationTests)('PostgreSQL row-level tenant isolation', () => {
   beforeAll(async () => {
     const database = await import('@rihal/database');
-    appPrisma = new database.PrismaClient({
-      datasources: { db: { url: applicationDatabaseUrl! } },
+    appPrisma = database.createPrismaClient({
+      url: applicationDatabaseUrl!,
       log: ['error'],
     });
-    fixturePrisma = new database.PrismaClient({
-      datasources: { db: { url: fixtureDatabaseUrl! } },
+    fixturePrisma = database.createPrismaClient({
+      url: fixtureDatabaseUrl!,
       log: ['error'],
     });
     await Promise.all([appDb().$connect(), fixtureDb().$connect()]);
@@ -503,7 +503,7 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL row-level tenant isolation'
         isMigrationMember: boolean;
         canDeleteTenantRows: boolean;
       }>>`
-        SELECT current_user AS "roleName",
+        SELECT current_user::text AS "roleName",
                role.rolsuper AS "isSuperuser",
                role.rolbypassrls AS "bypassesRls",
                role.rolcreatedb AS "canCreateDb",
@@ -519,8 +519,8 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL row-level tenant isolation'
         rowSecurity: boolean;
         forceRowSecurity: boolean;
       }>>`
-        SELECT relation.relname AS "tableName",
-               pg_get_userbyid(relation.relowner) AS "ownerName",
+        SELECT relation.relname::text AS "tableName",
+               pg_get_userbyid(relation.relowner)::text AS "ownerName",
                relation.relrowsecurity AS "rowSecurity",
                relation.relforcerowsecurity AS "forceRowSecurity"
         FROM pg_class AS relation

@@ -82,19 +82,21 @@ describe.skipIf(!canRunIntegrationTests)('PostgreSQL authentication flow', () =>
     delete process.env.SMTP_URL;
     delete process.env.SMTP_FROM;
 
-    const [databaseModule, nestCore, appModule, cryptoModule] = await Promise.all([
+    const [databaseModule, nestCore, appModule, cryptoModule, appSetup] = await Promise.all([
       import('@rihal/database'),
       import('@nestjs/core'),
       import('../src/app.module'),
       import('../src/auth/recovery-crypto.service'),
+      import('../src/app.setup'),
     ]);
     prisma = databaseModule.prisma;
-    adminPrisma = new databaseModule.PrismaClient({
-      datasources: { db: { url: integrationAdminDatabaseUrl! } },
+    adminPrisma = databaseModule.createPrismaClient({
+      url: integrationAdminDatabaseUrl!,
       log: ['error'],
     });
     await Promise.all([prisma.$connect(), adminPrisma.$connect()]);
     app = await nestCore.NestFactory.create(appModule.AppModule, { logger: false });
+    appSetup.configureApiApp(app);
     await app.listen(0, '127.0.0.1');
     const address = app.getHttpServer().address() as AddressInfo;
     baseUrl = `http://127.0.0.1:${address.port}/api`;

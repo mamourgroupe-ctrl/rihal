@@ -114,6 +114,32 @@ export class InvoicesService {
     }
   }
 
+  async list(
+    tenantId: string,
+    options: { status?: InvoiceStatus; limit: number; offset: number },
+  ): Promise<{ items: InvoiceWithItems[]; total: number }> {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
+      const where = {
+        tenantId,
+        archivedAt: null,
+        ...(options.status ? { status: options.status } : {}),
+      };
+      const [items, total] = await Promise.all([
+        tx.invoice.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip: options.offset,
+          take: options.limit,
+          include: {
+            items: { where: { archivedAt: null }, orderBy: { createdAt: 'asc' } },
+          },
+        }),
+        tx.invoice.count({ where }),
+      ]);
+      return { items, total };
+    });
+  }
+
   async transitionStatus(
     tenantId: string,
     invoiceId: string,

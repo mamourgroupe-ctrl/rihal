@@ -33,6 +33,75 @@ export class GroupsService {
     }));
   }
 
+  async list(
+    tenantId: string,
+    options: { status?: GroupStatus; limit: number; offset: number },
+  ) {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
+      const where = {
+        tenantId,
+        archivedAt: null,
+        ...(options.status ? { status: options.status } : {}),
+      };
+      const [items, total] = await Promise.all([
+        tx.group.findMany({
+          where,
+          orderBy: [{ scheduledDate: 'asc' }, { createdAt: 'desc' }],
+          skip: options.offset,
+          take: options.limit,
+          include: {
+            members: {
+              where: { archivedAt: null },
+              orderBy: [{ isLeader: 'desc' }, { createdAt: 'asc' }],
+              include: {
+                pilgrim: {
+                  select: {
+                    id: true,
+                    fullNameAr: true,
+                    fullNameEn: true,
+                    passportNumber: true,
+                    status: true,
+                  },
+                },
+              },
+            },
+          },
+        }),
+        tx.group.count({ where }),
+      ]);
+      return { items, total };
+    });
+  }
+
+  async findOne(tenantId: string, groupId: string) {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
+      const group = await tx.group.findFirst({
+        where: { id: groupId, tenantId, archivedAt: null },
+        include: {
+          members: {
+            where: { archivedAt: null },
+            orderBy: [{ isLeader: 'desc' }, { createdAt: 'asc' }],
+            include: {
+              pilgrim: {
+                select: {
+                  id: true,
+                  fullNameAr: true,
+                  fullNameEn: true,
+                  passportNumber: true,
+                  status: true,
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!group) {
+        throw new DomainRuleError('NOT_FOUND', 'Group not found.');
+      }
+      return group;
+    });
+  }
+
   async addMember(
     tenantId: string,
     groupId: string,

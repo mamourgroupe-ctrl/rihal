@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { DomainModule } from './domain/domain.module';
 
 const envSchema = z.object({
@@ -47,7 +48,10 @@ const envSchema = z.object({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: join(__dirname, '../../.env'),
+      // Repository root `.env` first (as documented in the README), then the
+      // working directory, so `pnpm dev` from the repo root or from the app
+      // directory both pick up the same configuration.
+      envFilePath: [join(__dirname, '../../../.env'), join(process.cwd(), '.env')],
       validate: (config) => {
         const result = envSchema.safeParse(config);
         if (!result.success) {
@@ -60,6 +64,7 @@ const envSchema = z.object({
       },
     }),
     DatabaseModule,
+    DashboardModule,
     DomainModule,
     AuthModule,
   ],

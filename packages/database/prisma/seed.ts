@@ -1,8 +1,9 @@
-import { Gender, PrismaClient, Role, TenantStatus } from '@prisma/client';
+import { Gender, Role, TenantStatus } from '@prisma/client';
+import { createPrismaClient } from '../src/client';
 
 const seedConnectionUrl = process.env.SEED_DATABASE_URL ?? process.env.DIRECT_URL;
-const prisma = new PrismaClient({
-  ...(seedConnectionUrl ? { datasources: { db: { url: seedConnectionUrl } } } : {}),
+const prisma = createPrismaClient({
+  ...(seedConnectionUrl ? { url: seedConnectionUrl } : {}),
   log: ['error'],
 });
 const seedOnlyPasswordSentinel = 'NOT_A_REAL_PASSWORD_HASH';

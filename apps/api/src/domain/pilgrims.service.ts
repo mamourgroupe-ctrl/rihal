@@ -44,6 +44,74 @@ export class PilgrimsService {
     }));
   }
 
+  async list(
+    tenantId: string,
+    options: { status?: PilgrimStatus; search?: string; limit: number; offset: number },
+  ): Promise<{ items: Pilgrim[]; total: number }> {
+    const where = {
+      tenantId,
+      archivedAt: null,
+      ...(options.status ? { status: options.status } : {}),
+      ...(options.search
+        ? {
+            OR: [
+              { fullNameAr: { contains: options.search, mode: 'insensitive' as const } },
+              { fullNameEn: { contains: options.search, mode: 'insensitive' as const } },
+              { passportNumber: { contains: options.search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+
+    return this.prismaService.withTenant(tenantId, async (tx) => {
+      const [items, total] = await Promise.all([
+        tx.pilgrim.findMany({
+          where,
+          orderBy: { createdAt: 'desc' },
+          skip: options.offset,
+          take: options.limit,
+        }),
+        tx.pilgrim.count({ where }),
+      ]);
+      return { items, total };
+    });
+  }
+
+  async findOne(tenantId: string, pilgrimId: string): Promise<Pilgrim> {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
+      const pilgrim = await tx.pilgrim.findFirst({
+        where: { id: pilgrimId, tenantId, archivedAt: null },
+      });
+      if (!pilgrim) {
+        throw new DomainRuleError('NOT_FOUND', 'Pilgrim not found.');
+      }
+      return pilgrim;
+    });
+  }
+
+  async update(
+    tenantId: string,
+    pilgrimId: string,
+    input: Partial<Pick<CreatePilgrimInput, 'phone' | 'email' | 'notes' | 'passportExpiry' | 'nationality'>>,
+  ): Promise<Pilgrim> {
+    return this.prismaService.withTenant(tenantId, async (tx) => {
+      const updated = await tx.pilgrim.updateMany({
+        where: { id: pilgrimId, tenantId, archivedAt: null },
+        data: {
+          ...(input.phone === undefined ? {} : { phone: input.phone?.trim() || null }),
+          ...(input.email === undefined ? {} : { email: input.email?.trim().toLowerCase() || null }),
+          ...(input.notes === undefined ? {} : { notes: input.notes?.trim() || null }),
+          ...(input.passportExpiry === undefined ? {} : { passportExpiry: input.passportExpiry }),
+          ...(input.nationality === undefined ? {} : { nationality: input.nationality.trim().toUpperCase() }),
+        },
+      });
+      if (updated.count !== 1) {
+        throw new DomainRuleError('NOT_FOUND', 'Pilgrim not found.');
+      }
+      return tx.pilgrim.findFirstOrThrow({ where: { id: pilgrimId, tenantId, archivedAt: null } });
+    });
+  }
+
   async transitionStatus(
     tenantId: string,
     pilgrimId: string,

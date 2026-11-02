@@ -1,0 +1,26 @@
+{
+  "id": "/?source=pwa",
+  "name": "رحّال — منصة عمليات الحج والعمرة",
+  "short_name": "رحّال",
+  "description": "إدارة المعتمرين والمجموعات والوثائق والفواتير في وكالة واحدة، مع عزل كامل بين الوكالات.",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "./?source=pwa",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f6f7f5",
+  "theme_color": "#0b3d26",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "المعتمرون", "url": "./#/pilgrims", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "المجموعات", "url": "./#/groups", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "الفواتير", "url": "./#/invoices", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}
