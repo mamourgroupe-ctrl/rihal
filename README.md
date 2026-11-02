@@ -54,6 +54,7 @@ pnpm --filter @rihal/api dev                 # http://localhost:4000
 
 بعد التشغيل:
 
+- لوحة التحكم: <http://localhost:4000/dashboard.html>
 - صفحة الحالة: <http://localhost:4000/>
 - واجهة البرمجة: <http://localhost:4000/api> و`/api/health`
 - بيانات الدخول التجريبية: الوكالة `seed-agency-north` والمستخدم `admin@north.seed.invalid`
@@ -73,7 +74,8 @@ pnpm --filter @rihal/api dev                 # http://localhost:4000
 - [x] RLS Policies
 - [x] NestJS API (صحة الخدمة + المصادقة والجلسات)
 - [ ] Next.js Frontend
-- [ ] إدارة المعتمرين
+- [x] لوحة تحكم للعمليات (ملخص المعتمرين والمجموعات والفواتير والوثائق)
+- [ ] إدارة المعتمرين (إنشاء وتعديل من الواجهة)
 
 ---
 

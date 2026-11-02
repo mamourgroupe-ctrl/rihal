@@ -161,8 +161,15 @@
             <tr><td><span class="method">POST</span></td><td><code>/api/auth/password/forgot</code></td><td>طلب استعادة كلمة المرور</td></tr>
             <tr><td><span class="method">POST</span></td><td><code>/api/auth/password/reset</code></td><td>تعيين كلمة مرور جديدة</td></tr>
             <tr><td><span class="method">GET</span></td><td><code>/api/auth/me</code></td><td>الهوية الحالية (يتطلب Bearer token)</td></tr>
+            <tr><td><span class="method">GET</span></td><td><code>/api/dashboard/overview</code></td><td>ملخص اللوحة (محمي)</td></tr>
+            <tr><td><span class="method">GET</span></td><td><code>/api/dashboard/pilgrims</code></td><td>قائمة المعتمرين (محمي، <code>status</code>/<code>limit</code>)</td></tr>
           </tbody>
         </table>
+        <p class="hint" style="margin-top:14px">
+          <a href="dashboard.html" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#0b7a5a;color:#fff;text-decoration:none;font-weight:700">
+            فتح لوحة التحكم ←
+          </a>
+        </p>
         <p class="hint">
           بيانات تجريبية جاهزة: الوكالة <code>seed-agency-north</code> — المستخدم
           <code>admin@north.seed.invalid</code>. عيّن كلمة المرور بأمر

@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { DomainModule } from './domain/domain.module';
 
 const envSchema = z.object({
@@ -63,6 +64,7 @@ const envSchema = z.object({
       },
     }),
     DatabaseModule,
+    DashboardModule,
     DomainModule,
     AuthModule,
   ],
