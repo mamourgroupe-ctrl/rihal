@@ -1,0 +1,151 @@
+{
+  "version": "2.0.0",
+  "options": {
+    "cwd": "${workspaceFolder}",
+    "env": {
+      "COREPACK_ENABLE_DOWNLOAD_PROMPT": "0"
+    }
+  },
+  "presentation": { "reveal": "always", "panel": "shared", "clear": true },
+  "tasks": [
+    {
+      "label": "١ · تثبيت التبعيات",
+      "type": "shell",
+      "command": "corepack pnpm install",
+      "problemMatcher": []
+    },
+    {
+      "label": "١ · فحص البيئة (doctor)",
+      "type": "shell",
+      "command": "node tooling/doctor.mjs",
+      "problemMatcher": []
+    },
+    {
+      "label": "٢ · توليد Prisma Client",
+      "type": "shell",
+      "command": "corepack pnpm db:generate",
+      "problemMatcher": []
+    },
+    {
+      "label": "٢ · تطبيق الهجرات",
+      "type": "shell",
+      "command": "corepack pnpm db:migrate",
+      "problemMatcher": []
+    },
+    {
+      "label": "٢ · بذر البيانات التجريبية",
+      "type": "shell",
+      "command": "corepack pnpm db:seed",
+      "problemMatcher": []
+    },
+    {
+      "label": "٢ · إنشاء مستخدم تجريبي",
+      "type": "shell",
+      "command": "corepack pnpm --filter @rihal/database db:demo-user",
+      "problemMatcher": []
+    },
+    {
+      "label": "٣ · تشغيل API (watch)",
+      "type": "shell",
+      "command": "corepack pnpm --filter @rihal/api dev",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "nestjs",
+        "pattern": { "regexp": "^(ERROR|WARN)\\s+(.*)$", "severity": 1, "message": 2 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Starting compilation|Found 0 errors|File change detected",
+          "endsPattern": "Nest application successfully started"
+        }
+      },
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "٣ · تشغيل API (debug + watch)",
+      "type": "shell",
+      "command": "corepack pnpm --filter @rihal/api exec nest start --watch --debug",
+      "isBackground": true,
+      "problemMatcher": {
+        "owner": "nestjs",
+        "pattern": { "regexp": "^(ERROR|WARN)\\s+(.*)$", "severity": 1, "message": 2 },
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "Starting compilation|File change detected",
+          "endsPattern": "Nest application successfully started"
+        }
+      },
+      "presentation": { "reveal": "always", "panel": "dedicated" }
+    },
+    {
+      "label": "٤ · بناء API",
+      "type": "shell",
+      "command": "corepack pnpm --filter @rihal/api build",
+      "group": "build",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "٤ · بناء الكل",
+      "type": "shell",
+      "command": "corepack pnpm build",
+      "group": { "kind": "build", "isDefault": true },
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "٥ · ESLint",
+      "type": "shell",
+      "command": "corepack pnpm lint",
+      "problemMatcher": ["$eslint-stylish"]
+    },
+    {
+      "label": "٥ · Typecheck",
+      "type": "shell",
+      "command": "corepack pnpm typecheck",
+      "problemMatcher": ["$tsc"]
+    },
+    {
+      "label": "٥ · الاختبارات (API)",
+      "type": "shell",
+      "command": "corepack pnpm --filter @rihal/api test",
+      "group": { "kind": "test", "isDefault": true },
+      "problemMatcher": []
+    },
+    {
+      "label": "٥ · تحقق كامل قبل الدفع",
+      "dependsOrder": "sequence",
+      "dependsOn": ["٥ · ESLint", "٥ · Typecheck", "٤ · بناء الكل", "٥ · الاختبارات (API)"],
+      "problemMatcher": []
+    },
+    {
+      "label": "٦ · نسخ الواجهة إلى حزمة الجوال",
+      "type": "shell",
+      "command": "corepack pnpm android:prepare",
+      "problemMatcher": []
+    },
+    {
+      "label": "٦ · مزامنة Capacitor",
+      "type": "shell",
+      "command": "corepack pnpm android:sync",
+      "problemMatcher": []
+    },
+    {
+      "label": "٦ · بناء APK",
+      "type": "shell",
+      "command": "corepack pnpm android:apk",
+      "group": "build",
+      "problemMatcher": []
+    },
+    {
+      "label": "٦ · فتح مشروع أندرويد في Android Studio",
+      "type": "shell",
+      "command": "corepack pnpm --filter @rihal/mobile exec cap open android",
+      "problemMatcher": []
+    },
+    {
+      "label": "٧ · تشغيل معاينة الواجهة (static)",
+      "type": "shell",
+      "command": "node tooling/serve-console.mjs",
+      "isBackground": true,
+      "problemMatcher": []
+    }
+  ]
+}

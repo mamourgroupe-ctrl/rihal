@@ -307,14 +307,30 @@ const recommended = [
   '.vscode/settings.json',
   '.vscode/tasks.json',
   '.vscode/launch.json',
+  '.vscode/mcp.json',
   '.vscode/extensions.json',
 ];
 record(
   'VS Code',
   'إعدادات الفريق',
   recommended.every((path) => existsSync(join(root, path))) ? 'ok' : 'warn',
-  recommended.filter((path) => existsSync(join(root, path))).length + '/4 ملفات',
+  `${recommended.filter((path) => existsSync(join(root, path))).length}/${recommended.length} ملفات`,
   'في VS Code: Command Palette → Extensions: Show Recommended Extensions',
+);
+// A file can exist locally yet never be committed (a stray .gitignore rule does
+// exactly that) — which is how shared config silently disappears on a fresh clone.
+const trackedVscode = new Set(
+  (run('git', ['ls-files', '.vscode'], { cwd: root }) ?? '').split('\n').filter(Boolean),
+);
+const untrackedShared = recommended.filter(
+  (file) => existsSync(join(root, file)) && !trackedVscode.has(file),
+);
+record(
+  'VS Code',
+  'تعقّب إعدادات الفريق',
+  untrackedShared.length ? 'warn' : 'ok',
+  untrackedShared.length ? `غير مُتعقَّبة: ${untrackedShared.join(', ')}` : 'كل الملفات المشتركة مرفوعة',
+  untrackedShared.length ? 'أضفها بـ git add -f (راجع .gitignore) وإلا لن تصل لبقية الفريق' : '',
 );
 
 /* -------------------------------- التقرير ------------------------------- */

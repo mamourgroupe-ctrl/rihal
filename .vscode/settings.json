@@ -1,0 +1,76 @@
+{
+  "//": "إعدادات مشتركة للفريق — لا تُضِف أسرارًا هنا (استخدم .env غير المُتعقَّب)",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": { "source.fixAll.eslint": "explicit" },
+  "editor.rulers": [110],
+  "editor.bracketPairColorization.enabled": true,
+  "editor.guides.bracketPairs": "active",
+  "editor.stickyScroll.enabled": true,
+
+  "files.eol": "\n",
+  "files.trimTrailingWhitespace": true,
+  "files.insertFinalNewline": true,
+  "files.exclude": {
+    "**/dist": true,
+    "**/.turbo": true,
+    "**/*.tsbuildinfo": true,
+    "apps/mobile/www": true,
+    "apps/mobile/android/.gradle": true,
+    "apps/mobile/android/app/build": true
+  },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/dist/**": true,
+    "**/.turbo/**": true,
+    "apps/mobile/android/**": true
+  },
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true,
+    "**/pnpm-lock.yaml": true,
+    "apps/mobile/www": true,
+    "apps/mobile/android/app/build": true
+  },
+  "search.useIgnoreFiles": true,
+
+  "eslint.useFlatConfig": true,
+  "eslint.validate": ["typescript", "javascript", "json"],
+  "eslint.workingDirectories": [{ "mode": "auto" }],
+
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.preferences.preferTypeOnlyAutoImports": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "javascript.updateImportsOnFileMove.enabled": "always",
+
+  "vitest.enable": true,
+  "vitest.commandLine": "corepack pnpm --filter @rihal/api exec vitest",
+
+  "prisma.pinToPrisma6": true,
+  "[prisma]": { "editor.defaultFormatter": "Prisma.prisma" },
+  "[markdown]": { "editor.formatOnSave": false, "editor.wordWrap": "on" },
+  "[yaml]": { "editor.defaultFormatter": "redhat.vscode-yaml" },
+  "[java]": { "editor.defaultFormatter": "redhat.java" },
+
+  "java.configuration.updateBuildConfiguration": "automatic",
+  "java.import.gradle.enabled": true,
+  "java.import.maven.enabled": false,
+
+  "terminal.integrated.defaultProfile.windows": "PowerShell",
+  "terminal.integrated.cwd": "${workspaceFolder}",
+
+  "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+  "chat.promptFiles": true,
+  "chat.mcp.enabled": true,
+
+  "cSpell.words": ["rihal", "rihal_app", "rihal_migrator", "pgdata", "prisma", "capacitor", "umrah", "intl"],
+  "cSpell.ignorePaths": [
+    "node_modules",
+    "dist",
+    "pnpm-lock.yaml",
+    "apps/mobile/android",
+    "apps/mobile/www"
+  ]
+}

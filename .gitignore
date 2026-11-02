@@ -14,6 +14,10 @@ out/
 .env.local
 .env.*.local
 .env.production
+# أي ملف بيئة آخر يحمل مفاتيح (مثل .ai-providers.env لمزوّدي الذكاء الاصطناعي)
+.env.*
+!.env.example
+.ai-providers.env
 
 # Logs
 *.log
@@ -24,9 +28,14 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 
-# IDE
+# IDE — إعدادات الفريق المشتركة تُتعقَّب، وما هو شخصي يبقى محليًا
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/mcp.json
+.vscode/.chrome-profile/
 .idea/
 
 # Prisma
@@ -53,5 +62,3 @@ apps/mobile/android/keystore.properties
 apps/mobile/android/*.jks
 apps/mobile/android/*.keystore
 
-# VS Code local state
-.vscode/.chrome-profile/

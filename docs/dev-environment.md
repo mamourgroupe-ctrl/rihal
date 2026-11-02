@@ -46,6 +46,7 @@
 | الاختبار | Vitest 5 | وحدات + تكامل | `apps/api/test` |
 | الجودة | ESLint 10 (flat) + Prettier 3 | قواعد صارمة + تنسيق موحّد | `eslint.config.mjs`, `.prettierrc.json` |
 | الجوال | Capacitor 8.6 + Gradle | APK/AAB + iOS | `apps/mobile` |
+| وكلاء Claude Code | Claude Code subagents | 6 وكلاء متخصصين | `.claude/agents/`, `CLAUDE.md` |
 | أندرويد | JDK 21 + Android SDK 36 | بناء وتوقيع | `tooling/setup/*` |
 | iOS | Xcode 16 + CocoaPods (macOS) أو CI سحابي | محاكي/TestFlight | `.github/workflows/ios.yml` |
 | الفحص البيئي | `tooling/doctor.mjs` | تقرير جاهزية ملوّن | `node tooling/doctor.mjs` |
@@ -177,6 +178,11 @@ code .
 **كيف تستخدمها:** في Copilot Chat افتح قائمة الأوضاع أعلى المحادثة واختر الوضع، أو
 `Ctrl+Shift+P → Chat: New Mode` لترى الملفات المتاحة.
 
+**Claude Code**: نفس الفريق متاح كوكلاء فرعيين في `.claude/agents/`
+(`architect`, `api-backend`, `database-rls`, `android-mobile`, `quality-qa`, `security-review`)،
+و`CLAUDE.md` في الجذر يربطها بالقواعد المشتركة. استدعِ أحدهم بـ`@api-backend` أو اترك التفويت التلقائي.
+**أي أداة أخرى** (Codex CLI، Gemini CLI، Cursor) تقرأ `AGENTS.md` — نفس القواعد، مصدر واحد.
+
 ### ملفات السياق التلقائي (instructions)
 تُطبَّق تلقائيًا حسب الملف المفتوح — لا حاجة لكتابة القواعد في كل محادثة:
 
@@ -285,6 +291,9 @@ code .
 | MCP لا يعمل | `npx`/موافقة | استخدم `npx.cmd` على Windows ووافق على الخادم |
 | `Your local changes … would be overwritten by checkout` | تعديلات محلية على ملفات موجودة في الفرع الهدف | `git stash push -u` ثم التبديل ثم `git stash pop` — التفصيل في §١١ |
 | `Cannot find module …\tooling\doctor.mjs` | لسه على فرع قديم (الملف غير موجود فيه) | `git branch --show-current` — يجب أن يكون `dev-env` أو الفرع الجاهز |
+| `.vscode/tasks.json` غير موجود بعد التبديل | `.gitignore` كان يستثني `.vscode/*` فلم تُرفع الملفات | `git pull` ثم `ls .vscode`؛ وللاستعادة الفورية: `git checkout origin/arena/0d97b4aa-rihal -- .vscode` |
+| إعدادات VS Code «تختفي» عند زميل آخر | ملف موجود محليًا لكنه غير مُتعقَّب | `node tooling/doctor.mjs` يعرض تحذير «تعقّب إعدادات الفريق» ثم `git add -f .vscode/<file>` |
+| `apps/web` أو `ai-boilerplate` تظهر كغير متعقَّبة | بقايا عملك القديم بعد التبديل | لا تُرفع؛ أضفها إلى `.git/info/exclude` إن أزعجتك: `echo "apps/web/" >> .git/info/exclude` |
 
 ---
 

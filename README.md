@@ -86,6 +86,7 @@ code .
 | قواعد تلقائية حسب المسار | `.github/instructions/` · `.github/copilot-instructions.md` |
 | قوالب أوامر (`/new-endpoint`, `/fix-bug`, `/mobile-release`) | `.github/prompts/` |
 | أدوات خارجية للوكلاء (GitHub, Playwright, Context7, Postgres) | `.vscode/mcp.json` |
+| وكلاء Claude Code الفرعيون (6 تخصصات) | `.claude/agents/` · `CLAUDE.md` |
 | بناء أندرويد وiOS في CI | `.github/workflows/android.yml` · `ios.yml` |
 
 > iOS لا يُبنى على Windows؛ الـworkflow أعلاه هو المسار المعتمد (macOS runner).

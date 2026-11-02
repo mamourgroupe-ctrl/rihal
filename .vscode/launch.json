@@ -1,0 +1,83 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "API · تشغيل ومراقبة (watch + inspector)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": ["pnpm", "--filter", "@rihal/api", "exec", "nest", "start", "--watch", "--debug"],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"],
+      "autoAttachChildProcesses": true,
+      "envFile": "${workspaceFolder}/.env",
+      "serverReadyAction": {
+        "pattern": "Nest application successfully started",
+        "uriFormat": "http://localhost:4000/",
+        "action": "openExternally"
+      }
+    },
+    {
+      "name": "API · إرفاق إلى عملية تعمل",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "اختبارات · الملف الحالي (Vitest)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "corepack",
+      "runtimeArgs": [
+        "pnpm",
+        "--filter",
+        "@rihal/api",
+        "exec",
+        "vitest",
+        "run",
+        "${relativeFile}"
+      ],
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "envFile": "${workspaceFolder}/.env"
+    },
+    {
+      "name": "واجهة · Chrome على المنفذ 4000",
+      "type": "pwa-chrome",
+      "request": "launch",
+      "url": "http://localhost:4000/",
+      "webRoot": "${workspaceFolder}/apps/api/public",
+      "sourceMaps": false,
+      "userDataDir": "${workspaceFolder}/.vscode/.chrome-profile"
+    },
+    {
+      "name": "واجهة · Edge على المنفذ 4000",
+      "type": "pwa-msedge",
+      "request": "launch",
+      "url": "http://localhost:4000/",
+      "webRoot": "${workspaceFolder}/apps/api/public",
+      "sourceMaps": false
+    },
+    {
+      "name": "أندرويد · WebView داخل التطبيق (attach)",
+      "type": "pwa-chrome",
+      "request": "attach",
+      "address": "localhost",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}/apps/mobile/www",
+      "sourceMaps": false
+    }
+  ],
+  "compounds": [
+    {
+      "name": "بيئة كاملة · API + واجهة",
+      "configurations": ["API · تشغيل ومراقبة (watch + inspector)", "واجهة · Chrome على المنفذ 4000"],
+      "stopAll": true,
+      "preLaunchTask": "٣ · تشغيل API (debug + watch)"
+    }
+  ]
+}
